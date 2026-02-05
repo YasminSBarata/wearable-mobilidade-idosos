@@ -188,8 +188,8 @@ Desenvolver tecnologia automatizada para monitoramento de mobilidade física e p
 
 ### Bolsistas
 
-- **Rafaely Sarraf Rezegue**
-- **Yasmin dos Santos Barata**
+- **Rafaely Sarraf Rezegue** - Fisioterapia
+- **Yasmin dos Santos Barata** - Eng. de computação
 
 ### Instituição
 

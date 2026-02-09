@@ -5,8 +5,6 @@ import logo from "../assets/Logo.svg";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Card, CardContent, CardHeader } from "./ui/card";
-import { Alert, AlertDescription } from "./ui/alert";
 
 export function Login() {
   const [email, setEmail] = useState("");
@@ -76,86 +74,74 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader>
-          <div className="flex flex-col items-center gap-4">
-            <div className="bg-[#272727] p-4 rounded-xl">
-              <img src={logo} alt="ElderSync" className="h-16" />
-            </div>
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900">ElderSync</h1>
-              <p className="text-gray-600 mt-2">Monitoramento de Pacientes</p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+        <div className="flex flex-col items-center mb-8">
+          <div className="mb-4 bg-[#272727] p-4 rounded-xl">
+            <img src={logo} alt="ElderSync" className="h-16" />
           </div>
-        </CardHeader>
+          <h1 className="text-3xl font-bold text-gray-900">ElderSync</h1>
+          <p className="text-gray-600 mt-2">Monitoramento de Pacientes</p>
+        </div>
 
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                required
-              />
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <Label htmlFor="email" className="block mb-2">
+              E-mail
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="password" className="block mb-2">
+              Senha
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
+          <Button
+            type="submit"
+            disabled={loading}
+            variant="success"
+            size="lg"
+            className="w-full"
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </Button>
+        </form>
 
-            {error && (
-              <Alert variant="destructive">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              type="submit"
-              disabled={loading}
-              variant="success"
-              size="lg"
-              className="w-full"
+        <div className="mt-6 text-center">
+          <p className="text-gray-600">
+            Não tem uma conta?{" "}
+            <Link
+              to="/signup"
+              className="text-[#29D68B] hover:text-[#24c07d] font-semibold"
             >
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Não tem uma conta?{" "}
-              <Link to="/signup" className="font-semibold hover:underline">
-                Cadastre-se
-              </Link>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+              Cadastre-se
+            </Link>
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

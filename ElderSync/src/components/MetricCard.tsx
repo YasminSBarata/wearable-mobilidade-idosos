@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
 import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { cn } from "@/utils/cn";
+import { cn } from "../utils/cn";
 
 interface MetricCardProps {
   title: string;
@@ -37,14 +36,17 @@ export function MetricCard({
 }: MetricCardProps) {
   return (
     <Card
+      variant="compact"
       className={cn(
         "relative overflow-hidden group shadow-sm p-6",
-        alert && "border-red-300",
+        alert ? "border-red-300" : "border-gray-200",
       )}
     >
       {alert && (
         <div className="absolute top-2 right-2">
-          <Badge variant="destructive">Alerta</Badge>
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+            Alerta
+          </span>
         </div>
       )}
 

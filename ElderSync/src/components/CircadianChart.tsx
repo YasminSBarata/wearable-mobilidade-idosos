@@ -9,7 +9,6 @@ import {
 } from "recharts";
 import { Clock } from "lucide-react";
 import { Card } from "./ui/card";
-import { cn } from "@/utils/cn";
 
 interface CircadianChartProps {
   data: number[];
@@ -22,7 +21,7 @@ export function CircadianChart({ data }: CircadianChartProps) {
   }));
 
   return (
-    <Card className="shadow-sm p-6">
+    <Card variant="compact" className="shadow-sm border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <Clock className="w-5 h-5" />
         Padrão Circadiano de Atividade
@@ -55,7 +54,7 @@ export function CircadianChart({ data }: CircadianChartProps) {
       </ResponsiveContainer>
 
       <div className="mt-4 grid grid-cols-3 gap-4 text-center">
-        <Card className="p-3 bg-amber-50 border-amber-200">
+        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
           <p className="text-xs text-gray-600">Período Matutino</p>
           <p className="text-lg font-bold text-amber-600">
             {data
@@ -64,8 +63,8 @@ export function CircadianChart({ data }: CircadianChartProps) {
               .toFixed(0)}
           </p>
           <p className="text-xs text-gray-400">06h - 12h</p>
-        </Card>
-        <Card className="p-3 bg-[#29D68B]/10 border-[#29D68B]/30">
+        </div>
+        <div className="p-3 bg-[#29D68B]/10 rounded-lg border border-[#29D68B]/30">
           <p className="text-xs text-gray-600">Período Vespertino</p>
           <p className="text-lg font-bold text-[#29D68B]">
             {data
@@ -74,8 +73,8 @@ export function CircadianChart({ data }: CircadianChartProps) {
               .toFixed(0)}
           </p>
           <p className="text-xs text-gray-400">12h - 18h</p>
-        </Card>
-        <Card className="p-3 bg-gray-100 border-gray-200">
+        </div>
+        <div className="p-3 bg-gray-100 rounded-lg border border-gray-200">
           <p className="text-xs text-gray-600">Período Noturno</p>
           <p className="text-lg font-bold text-gray-600">
             {data
@@ -84,7 +83,7 @@ export function CircadianChart({ data }: CircadianChartProps) {
               .toFixed(0)}
           </p>
           <p className="text-xs text-gray-400">18h - 24h</p>
-        </Card>
+        </div>
       </div>
     </Card>
   );

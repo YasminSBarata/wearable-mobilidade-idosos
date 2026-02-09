@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AlertCircle, Info } from "lucide-react";
-import { PatientData } from "./Dashboard";
+import type { PatientData } from "./Dashboard";
 import {
   Dialog,
   DialogContent,

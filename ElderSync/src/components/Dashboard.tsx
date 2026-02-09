@@ -321,7 +321,7 @@ export function Dashboard() {
                 <Button
                   variant="ghost"
                   onClick={() => setShowAddModal(true)}
-                  className="text-[#29D68B] hover:text-[#24c07d] h-auto p-0 text-sm"
+                  className="h-auto p-0 text-sm"
                 >
                   + Adicionar
                 </Button>
@@ -335,7 +335,7 @@ export function Dashboard() {
                   <Button
                     variant="ghost"
                     onClick={() => setShowAddModal(true)}
-                    className="text-[#29D68B] hover:text-[#24c07d] text-sm"
+                    className="text-sm"
                   >
                     Adicionar primeiro paciente
                   </Button>
@@ -382,7 +382,7 @@ export function Dashboard() {
                       <Button
                         variant="outline"
                         onClick={() => setShowDeviceModal(true)}
-                        className="gap-2 bg-[#29D68B]/10 text-[#29D68B] border-[#29D68B]/30 hover:bg-[#29D68B]/20"
+                        className="gap-2"
                       >
                         <Cpu className="w-4 h-4" />
                         Registrar Dispositivo

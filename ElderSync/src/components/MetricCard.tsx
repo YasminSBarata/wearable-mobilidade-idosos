@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { cn } from "@/utils/cn";
 
 interface MetricCardProps {
   title: string;
@@ -12,7 +15,7 @@ interface MetricCardProps {
   description?: string;
 }
 
-const colorClasses = {
+const iconColorClasses = {
   primary: "bg-[#29D68B]/10 text-[#29D68B]",
   warning: "bg-amber-100 text-amber-600",
 };
@@ -33,19 +36,22 @@ export function MetricCard({
   description,
 }: MetricCardProps) {
   return (
-    <div
-      className={`bg-white rounded-xl shadow-sm border ${alert ? "border-red-300" : "border-gray-200"} p-6 relative overflow-hidden group`}
+    <Card
+      className={cn(
+        "relative overflow-hidden group shadow-sm p-6",
+        alert && "border-red-300",
+      )}
     >
       {alert && (
         <div className="absolute top-2 right-2">
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-            Alerta
-          </span>
+          <Badge variant="destructive">Alerta</Badge>
         </div>
       )}
 
       <div className="flex items-center gap-3 mb-3">
-        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>{icon}</div>
+        <div className={cn("p-2 rounded-lg", iconColorClasses[color])}>
+          {icon}
+        </div>
         <p className="text-sm font-medium text-gray-600">{title}</p>
       </div>
 
@@ -58,7 +64,10 @@ export function MetricCard({
         <div className="mt-3">
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className={`h-2 rounded-full ${progressColors[color]} transition-all duration-300`}
+              className={cn(
+                "h-2 rounded-full transition-all duration-300",
+                progressColors[color],
+              )}
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -75,6 +84,6 @@ export function MetricCard({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

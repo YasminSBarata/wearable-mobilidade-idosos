@@ -162,7 +162,8 @@ const char* SERVER_URL = "${supabaseUrl}/functions/v1/make-server-ba5f214e/iot/m
               <Button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-[#29D68B] hover:bg-[#24c07d]"
+                variant="success"
+                className="flex-1"
               >
                 {loading ? "Registrando..." : "Registrar Dispositivo"}
               </Button>
@@ -268,10 +269,7 @@ const char* SERVER_URL = "${supabaseUrl}/functions/v1/make-server-ba5f214e/iot/m
               </AlertDescription>
             </Alert>
 
-            <Button
-              onClick={onClose}
-              className="w-full bg-[#29D68B] hover:bg-[#24c07d]"
-            >
+            <Button onClick={onClose} variant="success" className="w-full">
               Concluído
             </Button>
           </div>

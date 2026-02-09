@@ -131,7 +131,6 @@ export function Signup() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Seu nome"
                 required
-                className="h-11"
               />
             </div>
 
@@ -144,7 +143,6 @@ export function Signup() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 required
-                className="h-11"
               />
             </div>
 
@@ -158,7 +156,6 @@ export function Signup() {
                 placeholder="Mínimo 6 caracteres"
                 required
                 minLength={6}
-                className="h-11"
               />
             </div>
 
@@ -184,7 +181,9 @@ export function Signup() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#29D68B] text-white hover:bg-[#24c07d] h-11 text-base font-semibold"
+              variant="success"
+              size="lg"
+              className="w-full"
             >
               {loading ? "Criando conta..." : "Criar Conta"}
             </Button>
@@ -193,10 +192,7 @@ export function Signup() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Já tem uma conta?{" "}
-              <Link
-                to="/"
-                className="text-[#29D68B] hover:text-[#24c07d] font-semibold"
-              >
+              <Link to="/" className="font-semibold hover:underline">
                 Faça login
               </Link>
             </p>

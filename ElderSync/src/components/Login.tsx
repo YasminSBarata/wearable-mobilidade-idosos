@@ -101,7 +101,6 @@ export function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 required
-                className="h-11"
               />
             </div>
 
@@ -114,7 +113,6 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="h-11"
               />
             </div>
 
@@ -140,7 +138,9 @@ export function Login() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#29D68B] text-white hover:bg-[#24c07d] h-11 text-base font-semibold"
+              variant="success"
+              size="lg"
+              className="w-full"
             >
               {loading ? "Entrando..." : "Entrar"}
             </Button>
@@ -149,10 +149,7 @@ export function Login() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Não tem uma conta?{" "}
-              <Link
-                to="/signup"
-                className="text-[#29D68B] hover:text-[#24c07d] font-semibold"
-              >
+              <Link to="/signup" className="font-semibold hover:underline">
                 Cadastre-se
               </Link>
             </p>

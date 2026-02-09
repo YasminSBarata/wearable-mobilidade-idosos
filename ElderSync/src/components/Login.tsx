@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { getSupabaseClient } from "../utils/supabase/client";
-import logo from "../assets/logo.png";
+import logo from "../assets/Logo.svg";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";

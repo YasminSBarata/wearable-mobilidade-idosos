@@ -27,7 +27,7 @@ import { RegisterDeviceModal } from "./RegisterDeviceModal";
 import { PatientHistory } from "./PatientHistory";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
-import logo from "../assets/logo.png";
+import logo from "../assets/Logo.svg";
 
 export interface PatientData {
   id: string;
@@ -321,7 +321,7 @@ export function Dashboard() {
                 <Button
                   variant="ghost"
                   onClick={() => setShowAddModal(true)}
-                  className="text-[#29D68B] hover:text-[#24c07d] h-auto p-0 text-sm"
+                  className="h-auto p-0 text-sm"
                 >
                   + Adicionar
                 </Button>
@@ -335,7 +335,7 @@ export function Dashboard() {
                   <Button
                     variant="ghost"
                     onClick={() => setShowAddModal(true)}
-                    className="text-[#29D68B] hover:text-[#24c07d] text-sm"
+                    className="text-sm"
                   >
                     Adicionar primeiro paciente
                   </Button>
@@ -371,22 +371,20 @@ export function Dashboard() {
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
-                      <Button
-                        variant="outline"
+                      <button
                         onClick={() => setShowHistoryModal(true)}
-                        className="gap-2 bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100"
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition font-medium text-sm cursor-pointer"
                       >
                         <History className="w-4 h-4" />
                         Ver Histórico
-                      </Button>
-                      <Button
-                        variant="outline"
+                      </button>
+                      <button
                         onClick={() => setShowDeviceModal(true)}
-                        className="gap-2 bg-[#29D68B]/10 text-[#29D68B] border-[#29D68B]/30 hover:bg-[#29D68B]/20"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#29D68B]/10 text-[#29D68B] border border-[#29D68B]/30 rounded-lg hover:bg-[#29D68B]/20 transition font-medium text-sm cursor-pointer"
                       >
                         <Cpu className="w-4 h-4" />
                         Registrar Dispositivo
-                      </Button>
+                      </button>
                       <div className="text-right">
                         <p className="text-sm text-gray-500">
                           Última atualização

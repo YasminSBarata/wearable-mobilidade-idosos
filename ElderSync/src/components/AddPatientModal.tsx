@@ -127,7 +127,8 @@ export function AddPatientModal({ onClose, onAdd }: AddPatientModalProps) {
             </Button>
             <Button
               type="submit"
-              className="flex-1 sm:flex-1 bg-[#29D68B] hover:bg-[#24c07d]"
+              variant="success"
+              className="flex-1 sm:flex-1"
             >
               Adicionar
             </Button>

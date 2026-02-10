@@ -137,7 +137,7 @@ export function Dashboard() {
       );
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/make-server-ba5f214e/patients`,
+        `${supabaseUrl}/functions/v1/patient-api/patients`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -208,7 +208,7 @@ export function Dashboard() {
       }
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/make-server-ba5f214e/patients`,
+        `${supabaseUrl}/functions/v1/patient-api/patients`,
         {
           method: "POST",
           headers: {

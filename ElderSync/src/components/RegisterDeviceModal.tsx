@@ -45,7 +45,7 @@ export function RegisterDeviceModal({
 
     try {
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/make-server-ba5f214e/iot/devices`,
+        `${supabaseUrl}/functions/v1/patient-api/iot/devices`,
         {
           method: "POST",
           headers: {
@@ -89,7 +89,7 @@ export function RegisterDeviceModal({
     return `// Configurações do dispositivo - Cole no código do ESP32
 const char* DEVICE_ID = "${credentials.deviceId}";
 const char* API_KEY = "${credentials.apiKey}";
-const char* SERVER_URL = "${supabaseUrl}/functions/v1/make-server-ba5f214e/iot/metrics";`;
+const char* SERVER_URL = "${supabaseUrl}/functions/v1/patient-api/iot/metrics";`;
   };
 
   return (

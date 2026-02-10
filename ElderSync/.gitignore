@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 .env
 .env.local
+
+# Supabase
+supabase/.temp
+
+# Claude Code
+.claude/settings.local.json

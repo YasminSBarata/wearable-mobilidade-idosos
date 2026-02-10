@@ -84,7 +84,7 @@ export function PatientHistory({
     setError("");
     try {
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/make-server-ba5f214e/patients/${patientId}/metrics`,
+        `${supabaseUrl}/functions/v1/patient-api/patients/${patientId}/metrics`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

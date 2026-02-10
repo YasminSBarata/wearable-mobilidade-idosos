@@ -94,7 +94,11 @@ export function PatientHistory({
 
       if (!response.ok) {
         if (response.status === 404) {
-          setError("Paciente não encontrado. O paciente pode ter sido removido.");
+          // 404 pode significar que o paciente não existe OU que não há métricas ainda
+          // Como estamos mostrando um componente vazio quando não há métricas,
+          // vamos deixar o array vazio e mostrar a mensagem apropriada
+          setMetrics([]);
+          return;
         } else {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || "Erro ao carregar histórico");
@@ -352,12 +356,17 @@ export function PatientHistory({
             <div className="text-center py-12">
               <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                Nenhum histórico disponível
+                Nenhum histórico disponível ainda
               </h3>
-              <p className="text-gray-500">
-                Os dados serão exibidos aqui conforme os dispositivos enviarem
+              <p className="text-gray-500 mb-4">
+                Os dados serão exibidos aqui conforme o dispositivo ESP32 enviar
                 métricas.
               </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-sm text-blue-700">
+                  <strong>💡 Dica:</strong> Registre um dispositivo clicando em "Registrar Dispositivo" e configure o ESP32 para começar a receber dados reais.
+                </p>
+              </div>
             </div>
           ) : (
             <>

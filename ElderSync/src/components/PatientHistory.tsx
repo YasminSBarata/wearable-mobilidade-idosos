@@ -93,7 +93,13 @@ export function PatientHistory({
       );
 
       if (!response.ok) {
-        throw new Error("Erro ao carregar histórico");
+        if (response.status === 404) {
+          setError("Paciente não encontrado. O paciente pode ter sido removido.");
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Erro ao carregar histórico");
+        }
+        return;
       }
 
       const data = await response.json();

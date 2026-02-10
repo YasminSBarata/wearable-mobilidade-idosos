@@ -168,10 +168,20 @@ export function Dashboard() {
 
       const data = await response.json();
       console.log("Pacientes carregados:", data);
-      setPatients(data.patients || []);
+      const loadedPatients = data.patients || [];
+      setPatients(loadedPatients);
 
-      if (data.patients && data.patients.length > 0) {
-        setSelectedPatient(data.patients[0]);
+      // Se não há pacientes, limpar o selectedPatient
+      if (loadedPatients.length === 0) {
+        setSelectedPatient(null);
+      } else {
+        // Se o paciente selecionado não existe mais na lista, selecionar o primeiro
+        const currentSelectedExists = loadedPatients.some(
+          (p: PatientData) => p.id === selectedPatient?.id
+        );
+        if (!currentSelectedExists) {
+          setSelectedPatient(loadedPatients[0]);
+        }
       }
     } catch (error: any) {
       console.error("Erro ao carregar pacientes:", error);

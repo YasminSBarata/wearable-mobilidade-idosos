@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
+import { getSupabaseClient } from "../utils/supabase/client";
 import logo from "../assets/Logo.svg";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -38,7 +39,7 @@ export function Signup() {
       console.log("Iniciando signup para:", email);
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/make-server-ba5f214e/signup`,
+        `${supabaseUrl}/functions/v1/patient-api/signup`,
         {
           method: "POST",
           headers: {
@@ -76,15 +77,23 @@ export function Signup() {
 
       console.log("Conta criada com sucesso:", data);
 
-      // Configurar sessão no Supabase client e salvar tokens
+      // Configurar sessão no Supabase client com os tokens recebidos
       if (data.access_token && data.refresh_token) {
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("refresh_token", data.refresh_token);
-        localStorage.setItem("user_email", email);
-        console.log("Tokens salvos no localStorage");
+        const supabase = getSupabaseClient();
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        });
 
-        // Pequeno delay para garantir que o localStorage foi atualizado
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (sessionError) {
+          console.error("Erro ao configurar sessão:", sessionError);
+          throw new Error(
+            "Conta criada, mas não foi possível iniciar sessão. Tente fazer login.",
+          );
+        }
+
+        localStorage.setItem("user_email", email);
+        console.log("Sessão configurada no Supabase client");
 
         navigate("/dashboard");
       } else {

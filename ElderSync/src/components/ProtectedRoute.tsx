@@ -1,48 +1,49 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet } from "react-router";
-import { getSupabaseClient } from "../utils/supabase/client";
+import { Navigate, Outlet, useLocation } from "react-router";
+import { getSupabaseClient, checkSession } from "../utils/supabase/client";
 
 export function ProtectedRoute() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
+    let mounted = true;
     const supabase = getSupabaseClient();
 
     const checkAuth = async () => {
-      console.log("ProtectedRoute: Verificando autenticação...");
+      try {
+        const { session, error } = await checkSession();
 
-      // O Supabase gerencia a sessão automaticamente
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-      console.log("ProtectedRoute: Sessão:", {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        error,
-      });
+        if (error) {
+          console.error("[ProtectedRoute] Erro ao verificar sessão", error);
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          return;
+        }
 
-      if (error || !session) {
-        console.log("ProtectedRoute: Sem sessão válida");
-        setIsAuthenticated(false);
-      } else {
-        console.log(
-          "ProtectedRoute: ✅ Sessão válida, usuário:",
-          session.user.email,
-        );
-        setIsAuthenticated(true);
+        setIsAuthenticated(!!session);
+      } catch (err) {
+        console.error("[ProtectedRoute] Exceção", err);
+        if (mounted) {
+          setIsAuthenticated(false);
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    // Verificar sessão inicial
     checkAuth();
 
-    // Listener para mudanças de autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("ProtectedRoute: Auth state changed:", event);
+      if (!mounted) return;
+
       if (event === "SIGNED_OUT" || !session) {
         setIsAuthenticated(false);
       } else if (session) {
@@ -51,11 +52,12 @@ export function ProtectedRoute() {
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [location.pathname]);
 
-  if (isAuthenticated === null) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -67,8 +69,8 @@ export function ProtectedRoute() {
   }
 
   if (!isAuthenticated) {
-    console.log("ProtectedRoute: ❌ Não autenticado, redirecionando para /");
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/" replace />;
+  return <Outlet />;
 }

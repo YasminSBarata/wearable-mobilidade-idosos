@@ -104,8 +104,7 @@ export function AddPatientModal({ onClose, onAdd }: AddPatientModalProps) {
           <Alert>
             <Info className="size-4" />
             <AlertDescription>
-              <strong>Nota:</strong> Os dados de monitoramento serão gerados
-              automaticamente para demonstração.
+              <strong>Nota:</strong> Os dados do Dashboard são gerados automaticamente para demonstração. Para receber dados reais, registre um dispositivo ESP32 após adicionar o paciente.
             </AlertDescription>
           </Alert>
 

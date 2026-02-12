@@ -7,6 +7,7 @@ import { Label } from "./ui/label";
 import { Alert, AlertDescription } from "./ui/alert";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 interface DeviceCredentials {
   deviceId: string;
@@ -44,20 +45,18 @@ export function RegisterDeviceModal({
     setError("");
 
     try {
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/patient-api/iot/devices`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            patientId,
-            deviceName: deviceName.trim(),
-          }),
+      const response = await fetch(`${supabaseUrl}/functions/v1/iot/devices`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          apikey: supabaseAnonKey,
         },
-      );
+        body: JSON.stringify({
+          patientId,
+          deviceName: deviceName.trim(),
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -89,7 +88,7 @@ export function RegisterDeviceModal({
     return `// Configurações do dispositivo - Cole no código do ESP32
 const char* DEVICE_ID = "${credentials.deviceId}";
 const char* API_KEY = "${credentials.apiKey}";
-const char* SERVER_URL = "${supabaseUrl}/functions/v1/patient-api/iot/metrics";`;
+const char* SERVER_URL = "${supabaseUrl}/functions/v1/iot/metrics";`;
   };
 
   return (

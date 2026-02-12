@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 interface HistoricalMetric {
   deviceId: string;
@@ -84,10 +85,11 @@ export function PatientHistory({
     setError("");
     try {
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/patient-api/patients/${patientId}/metrics`,
+        `${supabaseUrl}/functions/v1/patients/${patientId}/metrics`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            apikey: supabaseAnonKey,
           },
         },
       );
@@ -364,7 +366,9 @@ export function PatientHistory({
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
                 <p className="text-sm text-blue-700">
-                  <strong>💡 Dica:</strong> Registre um dispositivo clicando em "Registrar Dispositivo" e configure o ESP32 para começar a receber dados reais.
+                  <strong>💡 Dica:</strong> Registre um dispositivo clicando em
+                  "Registrar Dispositivo" e configure o ESP32 para começar a
+                  receber dados reais.
                 </p>
               </div>
             </div>

@@ -21,17 +21,12 @@ export function Login() {
     try {
       const supabase = getSupabaseClient();
 
-      console.log("Tentando fazer login com:", email);
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.error("Erro ao fazer login:", error);
-
-        // Mensagens de erro específicas
         if (error.message.includes("Invalid login credentials")) {
           setError(
             "E-mail ou senha incorretos. Verifique seus dados ou crie uma conta.",
@@ -49,24 +44,19 @@ export function Login() {
         return;
       }
 
-      console.log("Login bem-sucedido:", data);
-
       if (data?.session) {
-        // O Supabase automaticamente gerencia a sessão no storage interno
-        // Apenas salvar o email para referência
         localStorage.setItem("user_email", email);
-        console.log("Sessão criada com sucesso, usuário:", data.user?.email);
-
-        console.log("Navegando para dashboard...");
         navigate("/dashboard");
       } else {
         setError("Sessão não foi criada. Tente novamente.");
         setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Erro completo ao fazer login:", err);
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Erro desconhecido";
+      console.error("[Login] Erro", errorMessage);
       setError(
-        err.message ||
+        errorMessage ||
           "Erro ao fazer login. Verifique seus dados e tente novamente.",
       );
       setLoading(false);

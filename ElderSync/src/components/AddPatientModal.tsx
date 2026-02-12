@@ -40,31 +40,55 @@ export function AddPatientModal({ onClose, onAdd }: AddPatientModalProps) {
 
     setError("");
 
-    // Gerar dados de exemplo para o novo paciente
     const newPatient: Omit<PatientData, "id"> = {
       name,
       age: ageNum,
-      lastUpdate: new Date().toLocaleString("pt-BR"),
+      lastUpdate: "Aguardando dados do dispositivo",
       metrics: {
-        stepCount: Math.floor(Math.random() * 5000) + 3000,
-        averageCadence: Math.random() * 30 + 90,
-        timeSeated: Math.random() * 6 + 8,
-        timeStanding: Math.random() * 4 + 4,
-        timeWalking: Math.random() * 3 + 1,
-        gaitSpeed: Math.random() * 0.5 + 0.8,
-        posturalStability: Math.random() * 20 + 70,
-        fallsDetected: Math.random() > 0.8,
-        fallsTimestamp:
-          Math.random() > 0.8 ? new Date().toLocaleString("pt-BR") : undefined,
-        inactivityEpisodes: Math.floor(Math.random() * 5) + 2,
-        inactivityAvgDuration: Math.random() * 30 + 20,
-        tugEstimated: Math.random() * 5 + 8,
-        abruptTransitions: Math.floor(Math.random() * 15) + 3,
-        circadianPattern: Array.from({ length: 24 }, () => Math.random() * 100),
+        stepCount: 0,
+        averageCadence: 0,
+        timeSeated: 0,
+        timeStanding: 0,
+        timeWalking: 0,
+        gaitSpeed: 0,
+        posturalStability: 0,
+        fallsDetected: false,
+        inactivityEpisodes: 0,
+        inactivityAvgDuration: 0,
+        tugEstimated: 0,
+        abruptTransitions: 0,
+        circadianPattern: Array(24).fill(0),
       },
     };
 
     onAdd(newPatient);
+
+    //   // Gerar dados de exemplo para o novo paciente
+    //   const newPatient: Omit<PatientData, "id"> = {
+    //     name,
+    //     age: ageNum,
+    //     lastUpdate: new Date().toLocaleString("pt-BR"),
+    //     metrics: {
+    //       stepCount: Math.floor(Math.random() * 5000) + 3000,
+    //       averageCadence: Math.random() * 30 + 90,
+    //       timeSeated: Math.random() * 6 + 8,
+    //       timeStanding: Math.random() * 4 + 4,
+    //       timeWalking: Math.random() * 3 + 1,
+    //       gaitSpeed: Math.random() * 0.5 + 0.8,
+    //       posturalStability: Math.random() * 20 + 70,
+    //       fallsDetected: Math.random() > 0.8,
+    //       fallsTimestamp:
+    //         Math.random() > 0.8 ? new Date().toLocaleString("pt-BR") : undefined,
+    //       inactivityEpisodes: Math.floor(Math.random() * 5) + 2,
+    //       inactivityAvgDuration: Math.random() * 30 + 20,
+    //       tugEstimated: Math.random() * 5 + 8,
+    //       abruptTransitions: Math.floor(Math.random() * 15) + 3,
+    //       circadianPattern: Array.from({ length: 24 }, () => Math.random() * 100),
+    //     },
+    //   };
+
+    //   onAdd(newPatient);
+    // };
   };
 
   return (
@@ -104,7 +128,9 @@ export function AddPatientModal({ onClose, onAdd }: AddPatientModalProps) {
           <Alert>
             <Info className="size-4" />
             <AlertDescription>
-              <strong>Nota:</strong> Os dados do Dashboard são gerados automaticamente para demonstração. Para receber dados reais, registre um dispositivo ESP32 após adicionar o paciente.
+              <strong>Nota:</strong> Os dados do Dashboard começarão zerados.
+              Registre um dispositivo ESP32 após adicionar o paciente para
+              começar a receber métricas reais.
             </AlertDescription>
           </Alert>
 

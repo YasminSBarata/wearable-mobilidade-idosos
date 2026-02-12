@@ -23,7 +23,6 @@ export function Signup() {
     setLoading(true);
 
     try {
-      // Validações no frontend
       if (password.length < 6) {
         throw new Error("A senha deve ter no mínimo 6 caracteres.");
       }
@@ -36,27 +35,19 @@ export function Signup() {
         throw new Error("Por favor, insira um nome válido.");
       }
 
-      console.log("Iniciando signup para:", email);
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/patient-api/signup`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({ email, password, name }),
+      const response = await fetch(`${supabaseUrl}/functions/v1/auth/signup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
         },
-      );
+        body: JSON.stringify({ email, password, name }),
+      });
 
       const data = await response.json();
-      console.log("Resposta do signup:", response.status, data);
 
       if (!response.ok) {
-        console.error("Erro no signup:", data);
-
-        // Mensagens de erro específicas
         if (
           data.error?.includes("User already registered") ||
           data.error?.includes("already been registered")
@@ -75,9 +66,6 @@ export function Signup() {
         }
       }
 
-      console.log("Conta criada com sucesso:", data);
-
-      // Configurar sessão no Supabase client com os tokens recebidos
       if (data.access_token && data.refresh_token) {
         const supabase = getSupabaseClient();
         const { error: sessionError } = await supabase.auth.setSession({
@@ -86,25 +74,24 @@ export function Signup() {
         });
 
         if (sessionError) {
-          console.error("Erro ao configurar sessão:", sessionError);
           throw new Error(
             "Conta criada, mas não foi possível iniciar sessão. Tente fazer login.",
           );
         }
 
         localStorage.setItem("user_email", email);
-        console.log("Sessão configurada no Supabase client");
-
         navigate("/dashboard");
       } else {
         throw new Error(
           "Conta criada, mas não foi possível fazer login automaticamente. Tente fazer login.",
         );
       }
-    } catch (err: any) {
-      console.error("Erro completo ao criar conta:", err);
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Erro desconhecido";
+      console.error("[Signup] Erro", errorMessage);
       setError(
-        err.message ||
+        errorMessage ||
           "Erro ao criar conta. Verifique seus dados e tente novamente.",
       );
     } finally {

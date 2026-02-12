@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { getSupabaseClient } from "../utils/supabase/client";
+import { getSupabaseClient, checkSession } from "../utils/supabase/client";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 import {
   Activity,
   LogOut,
@@ -68,22 +70,35 @@ export function Dashboard() {
 
   // Aguardar a sessão estar pronta antes de carregar dados
   useEffect(() => {
+    let mounted = true;
     const supabase = getSupabaseClient();
 
-    // Verificar sessão inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Dashboard: Sessão inicial:", !!session);
-      if (session) {
-        setSessionReady(true);
-        setAccessToken(session.access_token);
-      }
-    });
+    const initSession = async () => {
+      try {
+        const { session, error } = await checkSession();
+        if (!mounted) return;
 
-    // Listener para mudanças na sessão
+        if (error) {
+          console.error("[Dashboard] Erro ao verificar sessão", error);
+          return;
+        }
+
+        if (session) {
+          setSessionReady(true);
+          setAccessToken(session.access_token);
+        }
+      } catch (err) {
+        console.error("[Dashboard] Exceção ao inicializar sessão", err);
+      }
+    };
+
+    initSession();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Dashboard: Auth state changed:", event, !!session);
+      if (!mounted) return;
+
       if (session) {
         setSessionReady(true);
         setAccessToken(session.access_token);
@@ -94,6 +109,7 @@ export function Dashboard() {
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [navigate]);
@@ -109,82 +125,59 @@ export function Dashboard() {
     setLoading(true);
     setError("");
     try {
-      // Obter o token diretamente da sessão do Supabase (gerenciada automaticamente)
-      const supabase = getSupabaseClient();
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const { session, error: sessionError } = await checkSession();
 
-      console.log("Dashboard: Sessão obtida:", {
-        hasSession: !!session,
-        hasAccessToken: !!session?.access_token,
-        sessionError,
-      });
+      if (sessionError) {
+        console.error("[Dashboard] Erro ao obter sessão", sessionError);
+        setError("Erro ao verificar sessão. Tente fazer login novamente.");
+        return;
+      }
 
       const token = session?.access_token;
-
       if (!token) {
-        console.error("Dashboard: Token não encontrado na sessão");
         navigate("/");
         return;
       }
 
-      console.log("Dashboard: Usando token para carregar pacientes");
-      console.log(
-        "Dashboard: Token (primeiros 50 chars):",
-        token.substring(0, 50) + "...",
-      );
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/patient-api/patients`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await fetch(`${supabaseUrl}/functions/v1/patients`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: supabaseAnonKey,
         },
-      );
+      });
 
       if (response.status === 401) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Não autorizado - erro do servidor:", errorData);
         setError(
           "Erro de autenticação no servidor: " +
             (errorData.error || "Token inválido"),
         );
-        // Não fazer logout automático para permitir debug
-        // Se realmente precisar fazer logout, descomentar as linhas abaixo:
-        // const supabase = getSupabaseClient();
-        // await supabase.auth.signOut();
-        // navigate('/');
         return;
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Erro na resposta do servidor:", errorData);
         throw new Error(errorData.error || "Erro ao carregar pacientes");
       }
 
       const data = await response.json();
-      console.log("Pacientes carregados:", data);
       const loadedPatients = data.patients || [];
       setPatients(loadedPatients);
 
-      // Se não há pacientes, limpar o selectedPatient
       if (loadedPatients.length === 0) {
         setSelectedPatient(null);
       } else {
-        // Se o paciente selecionado não existe mais na lista, selecionar o primeiro
         const currentSelectedExists = loadedPatients.some(
-          (p: PatientData) => p.id === selectedPatient?.id
+          (p: PatientData) => p.id === selectedPatient?.id,
         );
         if (!currentSelectedExists) {
           setSelectedPatient(loadedPatients[0]);
         }
       }
-    } catch (error: any) {
-      console.error("Erro ao carregar pacientes:", error);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("[Dashboard] Erro ao carregar pacientes", errorMessage);
       setError(
         "Não foi possível carregar a lista de pacientes. Tente novamente.",
       );
@@ -200,37 +193,68 @@ export function Dashboard() {
     navigate("/");
   };
 
-  const handleAddPatient = async (patientData: Omit<PatientData, "id">) => {
+  const handleDeletePatient = async (patientId: string) => {
     try {
-      // Obter o token diretamente da sessão do Supabase
-      const supabase = getSupabaseClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+      const { session } = await checkSession();
       const token = session?.access_token;
 
       if (!token) {
-        console.error("Token não encontrado");
         setError("Sessão expirada. Faça login novamente.");
         setTimeout(() => navigate("/"), 2000);
         return;
       }
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/patient-api/patients`,
+        `${supabaseUrl}/functions/v1/patients/${patientId}`,
         {
-          method: "POST",
+          method: "DELETE",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            apikey: supabaseAnonKey,
           },
-          body: JSON.stringify(patientData),
         },
       );
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Erro ao remover paciente");
+      }
+
+      if (selectedPatient?.id === patientId) {
+        setSelectedPatient(null);
+      }
+
+      await loadPatients();
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("[Dashboard] Erro ao remover paciente", errorMessage);
+      setError("Não foi possível remover o paciente: " + errorMessage);
+    }
+  };
+
+  const handleAddPatient = async (patientData: Omit<PatientData, "id">) => {
+    try {
+      const { session } = await checkSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        setError("Sessão expirada. Faça login novamente.");
+        setTimeout(() => navigate("/"), 2000);
+        return;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/patients`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          apikey: supabaseAnonKey,
+        },
+        body: JSON.stringify(patientData),
+      });
+
       if (response.status === 401) {
-        console.error("Não autorizado - redirecionando para login");
         const supabase = getSupabaseClient();
         await supabase.auth.signOut();
         setError("Sessão expirada. Você será redirecionado para o login.");
@@ -240,22 +264,17 @@ export function Dashboard() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Erro ao adicionar paciente:", errorData);
         throw new Error(errorData.error || "Erro ao adicionar paciente");
       }
-
-      const result = await response.json();
-      console.log("Paciente adicionado com sucesso:", result);
 
       await loadPatients();
       setShowAddModal(false);
       setError("");
-    } catch (error: any) {
-      console.error("Erro ao adicionar paciente:", error);
-      setError(
-        "Não foi possível adicionar o paciente: " +
-          (error.message || "Erro desconhecido"),
-      );
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("[Dashboard] Erro ao adicionar paciente", errorMessage);
+      setError("Não foi possível adicionar o paciente: " + errorMessage);
     }
   };
 
@@ -358,6 +377,7 @@ export function Dashboard() {
                       patient={patient}
                       isSelected={selectedPatient?.id === patient.id}
                       onClick={() => setSelectedPatient(patient)}
+                      onDelete={handleDeletePatient}
                     />
                   ))}
                 </div>

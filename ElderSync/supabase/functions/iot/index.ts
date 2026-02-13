@@ -71,7 +71,66 @@ app.post("/iot/metrics", async (c: Context) => {
     const data: SensorData = await c.req.json();
     log.log("📡 Dados recebidos do dispositivo", { deviceId });
 
-    const { metrics, raw, timestamp } = data;
+    // Suportar dois formatos:
+    // 1. Processado: { metrics: {...}, raw: {...}, timestamp }
+    // 2. Raw do ESP: { accel: {x,y,z}, gyro: {x,y,z}, temperature, timestamp }
+    let metrics = data.metrics;
+    const raw = data.raw || (data.accel ? { accel: data.accel, gyro: data.gyro, temperature: data.temperature } : null);
+    const timestamp = data.timestamp;
+
+    // Se veio dados raw sem metrics, computar métricas do sensor
+    if (!metrics && data.accel) {
+      const accelMag = Math.sqrt(
+        data.accel.x ** 2 + data.accel.y ** 2 + data.accel.z ** 2,
+      );
+      const gyroMag = Math.sqrt(
+        (data.gyro?.x || 0) ** 2 + (data.gyro?.y || 0) ** 2 + (data.gyro?.z || 0) ** 2,
+      );
+
+      // Desvio da gravidade (1g) = nível de atividade
+      const activityLevel = Math.abs(accelMag - 1.0);
+
+      // Detecção de queda: aceleração > 2.5g
+      const possibleFall = accelMag > 2.5;
+
+      // Transição brusca: rotação > 45°/s
+      const abruptTransition = gyroMag > 45;
+
+      // Estimar estado de atividade baseado na aceleração
+      const isWalking = activityLevel > 0.15;
+      const isStanding = !isWalking && activityLevel > 0.03;
+      const isSeated = !isWalking && !isStanding;
+
+      // Intervalo em horas (SEND_INTERVAL do ESP = 5s)
+      const intervalHours = 5 / 3600;
+
+      // Estabilidade postural: inverso da variação do giroscópio (0-100)
+      const stability = Math.max(0, Math.min(100, 100 - gyroMag * 2));
+
+      metrics = {
+        stepCount: isWalking ? 1 : 0,
+        averageCadence: isWalking ? 60 + activityLevel * 100 : 0,
+        timeSeated: isSeated ? intervalHours : 0,
+        timeStanding: isStanding ? intervalHours : 0,
+        timeWalking: isWalking ? intervalHours : 0,
+        gaitSpeed: isWalking ? 0.3 + activityLevel * 2 : 0,
+        posturalStability: stability,
+        fallDetected: possibleFall,
+        inactivityEpisodes: 0,
+        inactivityAvgDuration: 0,
+        tugEstimated: 0,
+        abruptTransitions: abruptTransition ? 1 : 0,
+        hourlyActivity: activityLevel * 100,
+      };
+
+      log.log("🔬 Métricas computadas do raw", {
+        accelMag: accelMag.toFixed(3),
+        gyroMag: gyroMag.toFixed(3),
+        activityLevel: activityLevel.toFixed(3),
+        isWalking,
+        stability: stability.toFixed(0),
+      });
+    }
 
     const patient = (await kv.get(
       `user:${device.userId}:patient:${device.patientId}`,
@@ -171,7 +230,8 @@ app.post("/iot/metrics", async (c: Context) => {
     await kv.set(`user:${device.userId}:patient:${device.patientId}`, {
       ...patient,
       metrics: updatedMetrics,
-      lastUpdate: now.toLocaleString("pt-BR"),
+      lastUpdate: now.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+      lastUpdateTs: now.getTime(),
     });
 
     // Criar alertas se necessário

@@ -93,8 +93,8 @@ const char* SERVER_URL = "${supabaseUrl}/functions/v1/iot/metrics";`;
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto my-4 top-[50%] translate-y-[-50%] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Cpu className="w-6 h-6 text-[#29D68B]" />
             {credentials ? "Dispositivo Registrado" : "Registrar Dispositivo"}

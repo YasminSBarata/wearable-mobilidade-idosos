@@ -71,6 +71,10 @@ export interface SensorData {
     abruptTransitions?: number;
     hourlyActivity?: number | number[];
   };
+  // Dados raw do ESP32 (formato do esp32_code_example)
+  accel?: { x: number; y: number; z: number };
+  gyro?: { x: number; y: number; z: number };
+  temperature?: number;
   raw?: unknown;
-  timestamp?: string;
+  timestamp?: number | string;
 }

@@ -20,6 +20,8 @@ import {
   Cpu,
   History,
   X,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { PatientCard } from "./PatientCard";
 import { MetricCard } from "./MetricCard";
@@ -36,6 +38,7 @@ export interface PatientData {
   name: string;
   age: number;
   lastUpdate: string;
+  lastUpdateTs?: number;
   metrics: {
     stepCount: number;
     averageCadence: number;
@@ -52,6 +55,12 @@ export interface PatientData {
     abruptTransitions: number;
     circadianPattern: number[];
   };
+}
+
+// Verifica se o dispositivo enviou dados nos últimos 2 minutos
+function isDeviceOnline(lastUpdateTs?: number): boolean {
+  if (!lastUpdateTs) return false;
+  return Date.now() - lastUpdateTs < 2 * 60 * 1000;
 }
 
 export function Dashboard() {
@@ -114,15 +123,17 @@ export function Dashboard() {
     };
   }, [navigate]);
 
-  // Carregar pacientes quando a sessão estiver pronta
+  // Carregar pacientes quando a sessão estiver pronta + polling a cada 30s
   useEffect(() => {
     if (sessionReady) {
       loadPatients();
+      const interval = setInterval(() => loadPatients(true), 30000);
+      return () => clearInterval(interval);
     }
   }, [sessionReady]);
 
-  const loadPatients = async () => {
-    setLoading(true);
+  const loadPatients = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const { session, error: sessionError } = await checkSession();
@@ -167,12 +178,10 @@ export function Dashboard() {
       if (loadedPatients.length === 0) {
         setSelectedPatient(null);
       } else {
-        const currentSelectedExists = loadedPatients.some(
+        const updatedSelected = loadedPatients.find(
           (p: PatientData) => p.id === selectedPatient?.id,
         );
-        if (!currentSelectedExists) {
-          setSelectedPatient(loadedPatients[0]);
-        }
+        setSelectedPatient(updatedSelected || loadedPatients[0]);
       }
     } catch (error: unknown) {
       const errorMessage =
@@ -416,10 +425,27 @@ export function Dashboard() {
                         Registrar Dispositivo
                       </button>
                       <div className="text-right">
-                        <p className="text-sm text-gray-500">
-                          Última atualização
-                        </p>
-                        <p className="font-semibold text-gray-700">
+                        <div className="flex items-center justify-end gap-2 mb-1">
+                          {isDeviceOnline(selectedPatient.lastUpdateTs) ? (
+                            <>
+                              <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                              </span>
+                              <Wifi className="w-4 h-4 text-green-500" />
+                              <span className="text-xs font-medium text-green-600">Dispositivo online</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="relative flex h-2.5 w-2.5">
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-400"></span>
+                              </span>
+                              <WifiOff className="w-4 h-4 text-gray-400" />
+                              <span className="text-xs font-medium text-gray-500">Dispositivo offline</span>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">
                           {selectedPatient.lastUpdate}
                         </p>
                       </div>

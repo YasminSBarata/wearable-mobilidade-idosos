@@ -62,33 +62,6 @@ export function AddPatientModal({ onClose, onAdd }: AddPatientModalProps) {
     };
 
     onAdd(newPatient);
-
-    //   // Gerar dados de exemplo para o novo paciente
-    //   const newPatient: Omit<PatientData, "id"> = {
-    //     name,
-    //     age: ageNum,
-    //     lastUpdate: new Date().toLocaleString("pt-BR"),
-    //     metrics: {
-    //       stepCount: Math.floor(Math.random() * 5000) + 3000,
-    //       averageCadence: Math.random() * 30 + 90,
-    //       timeSeated: Math.random() * 6 + 8,
-    //       timeStanding: Math.random() * 4 + 4,
-    //       timeWalking: Math.random() * 3 + 1,
-    //       gaitSpeed: Math.random() * 0.5 + 0.8,
-    //       posturalStability: Math.random() * 20 + 70,
-    //       fallsDetected: Math.random() > 0.8,
-    //       fallsTimestamp:
-    //         Math.random() > 0.8 ? new Date().toLocaleString("pt-BR") : undefined,
-    //       inactivityEpisodes: Math.floor(Math.random() * 5) + 2,
-    //       inactivityAvgDuration: Math.random() * 30 + 20,
-    //       tugEstimated: Math.random() * 5 + 8,
-    //       abruptTransitions: Math.floor(Math.random() * 15) + 3,
-    //       circadianPattern: Array.from({ length: 24 }, () => Math.random() * 100),
-    //     },
-    //   };
-
-    //   onAdd(newPatient);
-    // };
   };
 
   return (

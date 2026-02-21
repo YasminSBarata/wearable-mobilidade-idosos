@@ -89,30 +89,23 @@ Para rodar a dashboard localmente em sua máquina:
 
 ```bash
 git clone https://github.com/YasminSBarata/wearable-mobilidade-idosos.git
-cd wearable-mobilidade-idosos/eldersync
+cd wearable-mobilidade-idosos/ElderSync
 ```
 
 2. **Instale as dependências:**
 
 ```bash
-
 pnpm install
-
 ```
 
 3. **Configure as variáveis de ambiente:**
 
-Crie um arquivo `.env.local` na pasta `eldersync/`:
+Crie um arquivo `.env.local` na pasta `ElderSync/`:
 
 ```env
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key-aqui
-SUPABASE_SERVICE_ROLE_KEY=sua-service-role-key-aqui
-
-# NextAuth (opcional, se usar)
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=gere-um-secret-aleatorio
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-anon-key-aqui
 ```
 
 4. **Execute o servidor de desenvolvimento:**
@@ -121,7 +114,7 @@ NEXTAUTH_SECRET=gere-um-secret-aleatorio
 pnpm dev
 ```
 
-Acesse [http://localhost:3000](http://localhost:3000) no navegador.
+Acesse [http://localhost:5173](http://localhost:5173) no navegador.
 
 #### Deploy na Vercel
 
@@ -240,15 +233,15 @@ Instale via Arduino IDE (Tools > Manage Libraries):
 
 2. **Configure o arquivo ESP32**
 
-```cpp
-// No arquivo esp32/main/config.h
+Abra `esp32/Implementados/espMPU.ino` e edite as constantes no início do arquivo:
 
+```cpp
 // WiFi
 const char* WIFI_SSID = "SuaRedeWiFi";
 const char* WIFI_PASSWORD = "SuaSenhaWiFi";
 
 // ElderSync API
-const char* SERVER_URL = "https://SEU_PROJETO.supabase.co/functions/v1/make-server-ba5f214e/iot/metrics";
+const char* SERVER_URL = "https://SEU_PROJETO.supabase.co/functions/v1/iot/metrics";
 
 // Credenciais do dispositivo
 const char* DEVICE_ID = "xxxxx-xxxxx-xxxxx";
@@ -290,36 +283,33 @@ SDA   →    GPIO 21
 
 ```
 wearable-mobilidade-idosos/
-├── eldersync/                    # 🌐 Dashboard Web (ElderSync Platform)
-│   ├── app/                      # Aplicação Next.js
-│   │   ├── (auth)/               # Rotas de autenticação
-│   │   ├── (dashboard)/          # Rotas do dashboard
-│   │   ├── api/                  # API Routes
-│   │   └── layout.tsx            # Layout principal
-│   ├── components/               # Componentes React
-│   │   ├── ui/                   # Componentes de UI (shadcn)
-│   │   ├── charts/               # Gráficos e visualizações
-│   │   └── forms/                # Formulários
-│   ├── lib/                      # Utilitários e configs
-│   │   ├── supabase/             # Cliente Supabase
-│   │   └── utils.ts              # Funções auxiliares
-│   ├── public/                   # Arquivos estáticos
+├── ElderSync/                    # 🌐 Dashboard Web (ElderSync Platform)
+│   ├── src/                      # Código-fonte da aplicação
+│   │   ├── components/           # Componentes React
+│   │   │   ├── ui/               # Componentes de UI (shadcn)
+│   │   │   ├── Dashboard.tsx     # Dashboard principal
+│   │   │   ├── Login.tsx         # Tela de login
+│   │   │   ├── Signup.tsx        # Tela de cadastro
+│   │   │   └── ...               # Outros componentes
+│   │   ├── routes.tsx            # Definição de rotas (React Router)
+│   │   ├── App.tsx               # Componente raiz
+│   │   └── main.tsx              # Entry point
 │   ├── supabase/                 # Edge Functions e migrations
-│   │   ├── functions/            # Supabase Edge Functions
-│   │   │   └── make-server-ba5f214e/  # API para ESP32
-│   │   └── migrations/           # Migrações SQL
+│   │   └── functions/            # Supabase Edge Functions
+│   │       ├── auth/             # Autenticação (signup/login)
+│   │       ├── health/           # Health check
+│   │       ├── iot/              # API para dispositivos ESP32
+│   │       └── patients/         # API de pacientes
+│   ├── public/                   # Arquivos estáticos
+│   ├── index.html                # Entry HTML (Vite)
+│   ├── vite.config.ts            # Configuração do Vite
 │   ├── package.json
-│   ├── tsconfig.json
-│   └── README.md                 # Instruções da dashboard
+│   └── tsconfig.json
 │
 ├── esp32/                        # 🔌 Firmware do ESP32
-│   ├── main/
-│   │   ├── main.ino              # Código principal
-│   │   ├── config.h              # Configurações (WiFi, API)
-│   │   ├── sensors.cpp           # Implementação dos sensores
-│   │   └── sensors.h             # Headers dos sensores
-│   ├── libraries/                # Bibliotecas Arduino extras
-│   └── README.md                 # Instruções do ESP32
+│   ├── Implementados/            # Código em produção
+│   │   └── espMPU.ino            # Firmware principal (ESP32 + MPU6050)
+│   └── Testes/                   # Sketches de teste e validação
 │
 ├── docs/                         # 📚 Documentação
 │   ├── IOT_INTEGRATION.md        # Guia de integração ESP32
@@ -391,7 +381,7 @@ Desenvolver tecnologia automatizada para monitoramento de mobilidade física e p
 ### Hardware
 - **ESP32** - Microcontrolador com WiFi/Bluetooth
 - **MPU6050** - Sensor MEMS 6-DoF (acelerômetro + giroscópio)
-- **SD Card Module** - Armazenamento local
+- **Bateria 18650** - Alimentação portátil com gerenciador de carga integrado
 
 ### Firmware
 - **Arduino Framework** - C++
@@ -399,14 +389,14 @@ Desenvolver tecnologia automatizada para monitoramento de mobilidade física e p
 - **WiFi Library** - Conectividade
 
 ### Plataforma ElderSync
-- **Frontend:** React + Next.js + TypeScript
+- **Frontend:** React 19 + Vite + TypeScript
+- **Roteamento:** React Router v7
 - **Backend:** Supabase (PostgreSQL + Edge Functions)
 - **Hosting:** Vercel
 - **Autenticação:** Supabase Auth
-- **Real-time:** Supabase Realtime Subscriptions
-- **UI Components:** shadcn/ui + Tailwind CSS
+- **UI Components:** shadcn/ui + Tailwind CSS v4
 - **Charts:** Recharts
-- **Forms:** React Hook Form + Zod
+- **Forms:** React Hook Form
 
 ---
 
@@ -416,16 +406,17 @@ Desenvolver tecnologia automatizada para monitoramento de mobilidade física e p
 
 ```bash
 # Desenvolvimento
-cd eldersync
-pnpm run dev              # Inicia servidor de desenvolvimento
-pnpm run build            # Build de produção
-pnpm run start            # Inicia servidor de produção
-pnpm run lint             # Verifica linting
+cd ElderSync
+pnpm dev                  # Inicia servidor de desenvolvimento (http://localhost:5173)
+pnpm build                # Build de produção
+pnpm preview              # Visualiza o build localmente
+pnpm lint                 # Verifica linting
 
-# Supabase
-npx supabase start       # Inicia Supabase local
-npx supabase db push     # Aplica migrações
-npx supabase gen types   # Gera tipos TypeScript
+# Supabase Edge Functions
+npx supabase functions deploy auth --no-verify-jwt
+npx supabase functions deploy iot --no-verify-jwt
+npx supabase functions deploy patients
+npx supabase functions deploy health
 ```
 
 ### ESP32
@@ -487,7 +478,7 @@ ElderSync is a complete wearable solution for real-time monitoring of physical m
 
 **Tech Stack:**
 - Hardware: ESP32 + MPU6050 (~$25-40 USD)
-- Frontend: React + Next.js + TypeScript
+- Frontend: React 19 + Vite + TypeScript
 - Backend: Supabase (PostgreSQL + Edge Functions)
 - Hosting: Vercel
 

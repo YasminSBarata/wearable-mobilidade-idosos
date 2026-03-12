@@ -1,8 +1,7 @@
 /**
  * Edge Function: patients
- * Rotas de gerenciamento de pacientes (CRUD)
- *
- * Endpoint: /patients/*
+ * CRUD de pacientes — ElderSync v2.0
+ * Persistência: tabela relacional `patients` (PostgreSQL)
  */
 
 import { Hono } from "npm:hono@4.4.0";
@@ -10,26 +9,20 @@ import { cors } from "npm:hono@4.4.0/cors";
 import { logger } from "npm:hono@4.4.0/logger";
 import type { Context } from "npm:hono@4.4.0";
 import { requireAuth } from "../_shared/middleware.ts";
-import * as kv from "../_shared/kv_store.ts";
+import { getSupabaseServiceClient } from "../_shared/supabase.ts";
 import { createLogger } from "../_shared/logger.ts";
-import type { Patient, MetricWithTimestamp } from "../_shared/types.ts";
+import type { PatientInsert, PatientUpdate } from "../_shared/types.ts";
 
 const log = createLogger("Patients API");
 
 const app = new Hono();
 
-// CORS - deve vir antes de todas as rotas
 app.use(
   "*",
   cors({
     origin: "*",
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "apikey",
-    ],
+    allowHeaders: ["Content-Type", "Authorization", "X-Requested-With", "apikey"],
     exposeHeaders: ["Content-Length"],
     maxAge: 86400,
     credentials: true,
@@ -44,189 +37,185 @@ app.use("*", logger(console.log));
 app.get("/patients", requireAuth, async (c: Context) => {
   try {
     const userId = c.get("userId");
-    log.log("Buscando pacientes", { userId });
+    const supabase = getSupabaseServiceClient();
 
-    const patients = await kv.getByPrefix(`user:${userId}:patient:`);
-    log.log("✅ Pacientes encontrados", { count: patients?.length || 0 });
+    const { data, error } = await supabase
+      .from("patients")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
-    return c.json({ patients: patients || [] });
+    if (error) {
+      log.error("Erro ao buscar pacientes", error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    log.log("✅ Pacientes encontrados", { count: data.length });
+    return c.json({ patients: data });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao buscar pacientes", errorMessage);
-    return c.json({ error: "Erro ao buscar pacientes: " + errorMessage }, 500);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao buscar pacientes", msg);
+    return c.json({ error: msg }, 500);
+  }
+});
+
+/**
+ * GET /patients/:patientId
+ * Busca um paciente pelo ID
+ */
+app.get("/patients/:patientId", requireAuth, async (c: Context) => {
+  try {
+    const userId = c.get("userId");
+    const patientId = c.req.param("patientId");
+    const supabase = getSupabaseServiceClient();
+
+    const { data, error } = await supabase
+      .from("patients")
+      .select("*")
+      .eq("id", patientId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      log.error("Erro ao buscar paciente", error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    if (!data) {
+      return c.json({ error: "Paciente não encontrado" }, 404);
+    }
+
+    return c.json({ patient: data });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao buscar paciente", msg);
+    return c.json({ error: msg }, 500);
   }
 });
 
 /**
  * POST /patients
- * Adiciona um novo paciente
+ * Cria um novo paciente
+ * Body: { name, birth_date?, gender?, clinical_notes? }
  */
 app.post("/patients", requireAuth, async (c: Context) => {
   try {
     const userId = c.get("userId");
-    const patientData = await c.req.json();
+    const body = await c.req.json();
 
-    log.log("Adicionando paciente", { userId, name: patientData.name });
-
-    const patientId = crypto.randomUUID();
-    const patient: Patient = {
-      id: patientId,
-      ...patientData,
-    };
-
-    await kv.set(`user:${userId}:patient:${patientId}`, patient);
-    log.log("✅ Paciente adicionado com sucesso", { patientId });
-
-    return c.json({ patient });
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao adicionar paciente", errorMessage);
-    return c.json(
-      { error: "Erro ao adicionar paciente: " + errorMessage },
-      500,
-    );
-  }
-});
-
-/**
- * DELETE /patients/:patientId
- * Remove um paciente
- */
-app.delete("/patients/:patientId", requireAuth, async (c: Context) => {
-  try {
-    const userId = c.get("userId");
-    const patientId = c.req.param("patientId");
-
-    const existingPatient = await kv.get(`user:${userId}:patient:${patientId}`);
-
-    if (!existingPatient) {
-      return c.json({ error: "Paciente não encontrado" }, 404);
+    if (!body.name?.trim()) {
+      return c.json({ error: "Campo 'name' é obrigatório" }, 400);
     }
 
-    await kv.del(`user:${userId}:patient:${patientId}`);
+    const insert: PatientInsert = {
+      user_id: userId,
+      name: body.name.trim(),
+      birth_date: body.birth_date ?? null,
+      gender: body.gender ?? null,
+      clinical_notes: body.clinical_notes ?? null,
+    };
 
-    return c.json({ success: true, message: "Paciente removido com sucesso" });
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from("patients")
+      .insert(insert)
+      .select()
+      .single();
+
+    if (error) {
+      log.error("Erro ao criar paciente", error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    log.log("✅ Paciente criado", { id: data.id });
+    return c.json({ patient: data }, 201);
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao remover paciente", errorMessage);
-    return c.json({ error: "Erro ao remover paciente: " + errorMessage }, 500);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao criar paciente", msg);
+    return c.json({ error: msg }, 500);
   }
 });
 
 /**
  * PUT /patients/:patientId
- * Atualiza um paciente existente
+ * Atualiza dados de um paciente
+ * Body: { name?, birth_date?, gender?, clinical_notes? }
  */
 app.put("/patients/:patientId", requireAuth, async (c: Context) => {
   try {
     const userId = c.get("userId");
     const patientId = c.req.param("patientId");
-    const updates = await c.req.json();
+    const body = await c.req.json();
 
-    log.log("Atualizando paciente", { userId, patientId });
+    const update: PatientUpdate = {};
+    if (body.name !== undefined) update.name = body.name.trim();
+    if (body.birth_date !== undefined) update.birth_date = body.birth_date;
+    if (body.gender !== undefined) update.gender = body.gender;
+    if (body.clinical_notes !== undefined) update.clinical_notes = body.clinical_notes;
 
-    const existingPatient = (await kv.get(
-      `user:${userId}:patient:${patientId}`,
-    )) as Patient | null;
-
-    if (!existingPatient) {
-      log.error("Paciente não encontrado", { patientId });
-      return c.json({ error: "Paciente não encontrado" }, 404);
+    if (Object.keys(update).length === 0) {
+      return c.json({ error: "Nenhum campo para atualizar" }, 400);
     }
 
-    const updatedPatient: Patient = {
-      ...existingPatient,
-      ...updates,
-      lastUpdate: new Date().toLocaleString("pt-BR"),
-    };
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from("patients")
+      .update(update)
+      .eq("id", patientId)
+      .eq("user_id", userId)
+      .select()
+      .single();
 
-    await kv.set(`user:${userId}:patient:${patientId}`, updatedPatient);
-    log.log("✅ Paciente atualizado com sucesso", { patientId });
+    if (error) {
+      // PGRST116 = zero rows returned → not found or wrong owner
+      if (error.code === "PGRST116") {
+        return c.json({ error: "Paciente não encontrado" }, 404);
+      }
+      log.error("Erro ao atualizar paciente", error.message);
+      return c.json({ error: error.message }, 500);
+    }
 
-    return c.json({ patient: updatedPatient });
+    log.log("✅ Paciente atualizado", { id: data.id });
+    return c.json({ patient: data });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao atualizar paciente", errorMessage);
-    return c.json(
-      { error: "Erro ao atualizar paciente: " + errorMessage },
-      500,
-    );
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao atualizar paciente", msg);
+    return c.json({ error: msg }, 500);
   }
 });
 
 /**
- * GET /patients/:patientId/metrics
- * Busca métricas históricas de um paciente
+ * DELETE /patients/:patientId
+ * Remove um paciente (cascata apaga sessões e leituras)
  */
-app.get("/patients/:patientId/metrics", requireAuth, async (c: Context) => {
+app.delete("/patients/:patientId", requireAuth, async (c: Context) => {
   try {
     const userId = c.get("userId");
     const patientId = c.req.param("patientId");
+    const supabase = getSupabaseServiceClient();
 
-    log.log("Buscando métricas históricas", { userId, patientId });
+    const { error, count } = await supabase
+      .from("patients")
+      .delete({ count: "exact" })
+      .eq("id", patientId)
+      .eq("user_id", userId);
 
-    const patient = await kv.get(`user:${userId}:patient:${patientId}`);
-    if (!patient) {
-      log.error("Paciente não encontrado", { patientId });
+    if (error) {
+      log.error("Erro ao remover paciente", error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    if (count === 0) {
       return c.json({ error: "Paciente não encontrado" }, 404);
     }
 
-    const metrics = await kv.getByPrefix(`metrics:${patientId}:`);
-
-    const sortedMetrics = ((metrics as MetricWithTimestamp[]) || []).sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
-
-    log.log("✅ Métricas históricas encontradas", {
-      count: sortedMetrics.length,
-    });
-
-    return c.json({
-      metrics: sortedMetrics.slice(0, 100),
-      total: sortedMetrics.length,
-    });
+    log.log("✅ Paciente removido", { id: patientId });
+    return c.json({ success: true });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao buscar métricas", errorMessage);
-    return c.json({ error: "Erro ao buscar métricas: " + errorMessage }, 500);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao remover paciente", msg);
+    return c.json({ error: msg }, 500);
   }
 });
 
-/**
- * GET /patients/:patientId/alerts
- * Busca alertas de um paciente
- */
-app.get("/patients/:patientId/alerts", requireAuth, async (c: Context) => {
-  try {
-    const userId = c.get("userId");
-    const patientId = c.req.param("patientId");
-
-    log.log("Buscando alertas", { userId, patientId });
-
-    const patient = await kv.get(`user:${userId}:patient:${patientId}`);
-    if (!patient) {
-      log.error("Paciente não encontrado", { patientId });
-      return c.json({ error: "Paciente não encontrado" }, 404);
-    }
-
-    const alerts = await kv.getByPrefix(`alert:${patientId}:`);
-
-    log.log("✅ Alertas encontrados", { count: alerts?.length || 0 });
-
-    return c.json({ alerts: alerts || [] });
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao buscar alertas", errorMessage);
-    return c.json({ error: "Erro ao buscar alertas: " + errorMessage }, 500);
-  }
-});
-
-// Handler para Deno Serve
 Deno.serve(app.fetch);

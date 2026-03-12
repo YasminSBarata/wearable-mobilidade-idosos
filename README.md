@@ -27,5 +27,4 @@ O envelhecimento populacional é uma realidade crescente no Brasil (aproximadame
 
 VERSÃO 2.0 EM DESENVOLVIMENTO... 
 
-### 💡 Solução Proposta
 

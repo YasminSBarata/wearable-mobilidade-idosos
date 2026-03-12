@@ -1,8 +1,12 @@
 /**
  * Edge Function: iot
- * Rotas para dispositivos IoT (ESP32/ESP8266 com MPU6050)
+ * Comunicação com dispositivo ESP32 via SSE — ElderSync v2.0
  *
- * Endpoint: /iot/*
+ * Rotas:
+ *   GET  /iot/listen?device_id=abc  — SSE, mantido aberto pelo ESP32
+ *   POST /iot/command               — dashboard dispara coleta
+ *   PATCH /iot/command/:id          — dashboard encerra coleta (cancelled)
+ *   POST /iot/reading               — ESP32 envia dados ao terminar
  */
 
 import { Hono } from "npm:hono@4.4.0";
@@ -10,33 +14,20 @@ import { cors } from "npm:hono@4.4.0/cors";
 import { logger } from "npm:hono@4.4.0/logger";
 import type { Context } from "npm:hono@4.4.0";
 import { requireAuth } from "../_shared/middleware.ts";
-import * as kv from "../_shared/kv_store.ts";
+import { getSupabaseServiceClient } from "../_shared/supabase.ts";
 import { createLogger } from "../_shared/logger.ts";
-import type {
-  PatientMetrics,
-  Patient,
-  IoTDevice,
-  SensorData,
-} from "../_shared/types.ts";
+import type { TestType, DeviceReadingInsert } from "../_shared/types.ts";
 
 const log = createLogger("IoT API");
 
-const app = new Hono();
+const app = new Hono().basePath("/iot");
 
-// CORS - deve vir antes de todas as rotas
 app.use(
   "*",
   cors({
     origin: "*",
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "X-Device-Key",
-      "X-Device-Id",
-      "apikey",
-    ],
+    allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Requested-With", "apikey"],
     exposeHeaders: ["Content-Length"],
     maxAge: 86400,
     credentials: true,
@@ -44,370 +35,251 @@ app.use(
 );
 app.use("*", logger(console.log));
 
-/**
- * POST /iot/metrics
- * Recebe dados do sensor (ESP32)
- * Autenticação via X-Device-Key e X-Device-Id
- */
-app.post("/iot/metrics", async (c: Context) => {
-  try {
-    const apiKey = c.req.header("X-Device-Key");
-    const deviceId = c.req.header("X-Device-Id");
+// Duração máxima por tipo de teste (segundos)
+const DURATION_MAX: Record<TestType, number> = {
+  balance_a:     10,
+  balance_b:     10,
+  balance_c:     10,
+  gait_1:        30,
+  gait_2:        30,
+  chair_pretest: 15,
+  chair_main:    60,
+  tug:           60,
+};
 
-    if (!apiKey || !deviceId) {
-      log.error("Dispositivo IoT sem credenciais");
-      return c.json(
-        { error: "Credenciais do dispositivo não fornecidas" },
-        401,
-      );
-    }
+// ============================================================
+// GET /iot/listen?device_id=abc
+// SSE — mantido aberto pelo ESP32. Sem autenticação JWT (dispositivo IoT).
+// ============================================================
+app.get("/listen", async (c: Context) => {
+  const deviceId = c.req.query("device_id");
+  if (!deviceId) {
+    return c.json({ error: "Parâmetro 'device_id' é obrigatório" }, 400);
+  }
 
-    const device = (await kv.get(`device:${deviceId}`)) as IoTDevice | null;
-    if (!device || device.apiKey !== apiKey) {
-      log.error("Dispositivo IoT não autorizado", { deviceId });
-      return c.json({ error: "Dispositivo não autorizado" }, 401);
-    }
+  log.log("ESP32 conectado via SSE", { deviceId });
 
-    const data: SensorData = await c.req.json();
-    log.log("📡 Dados recebidos do dispositivo", { deviceId });
+  const supabase = getSupabaseServiceClient();
+  const encoder = new TextEncoder();
 
-    // Suportar dois formatos:
-    // 1. Processado: { metrics: {...}, raw: {...}, timestamp }
-    // 2. Raw do ESP: { accel: {x,y,z}, gyro: {x,y,z}, temperature, timestamp }
-    let metrics = data.metrics;
-    const raw = data.raw || (data.accel ? { accel: data.accel, gyro: data.gyro, temperature: data.temperature } : null);
-    const timestamp = data.timestamp;
+  const stream = new ReadableStream({
+    start(controller) {
+      // Confirma conexão
+      controller.enqueue(encoder.encode(": connected\n\n"));
 
-    // Se veio dados raw sem metrics, computar métricas do sensor
-    if (!metrics && data.accel) {
-      const accelMag = Math.sqrt(
-        data.accel.x ** 2 + data.accel.y ** 2 + data.accel.z ** 2,
-      );
-      const gyroMag = Math.sqrt(
-        (data.gyro?.x || 0) ** 2 + (data.gyro?.y || 0) ** 2 + (data.gyro?.z || 0) ** 2,
-      );
+      // Escuta novos comandos pendentes para este device_id
+      const channel = supabase
+        .channel(`device-${deviceId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "device_commands",
+            filter: `device_id=eq.${deviceId}`,
+          },
+          async (payload: { new: { id: string; test_type: TestType; duration_max: number; session_id: string; status: string } }) => {
+            const cmd = payload.new;
 
-      // Desvio da gravidade (1g) = nível de atividade
-      const activityLevel = Math.abs(accelMag - 1.0);
+            if (cmd.status !== "pending") return;
 
-      // Detecção de queda: aceleração > 2.5g
-      const possibleFall = accelMag > 2.5;
+            // Marca como em execução
+            await supabase
+              .from("device_commands")
+              .update({ status: "executing" })
+              .eq("id", cmd.id);
 
-      // Transição brusca: rotação > 45°/s
-      const abruptTransition = gyroMag > 45;
+            const event = JSON.stringify({
+              id: cmd.id,
+              test_type: cmd.test_type,
+              duration_max: cmd.duration_max,
+              session_id: cmd.session_id,
+            });
 
-      // Estimar estado de atividade baseado na aceleração
-      const isWalking = activityLevel > 0.15;
-      const isStanding = !isWalking && activityLevel > 0.03;
-      const isSeated = !isWalking && !isStanding;
+            log.log("Comando enviado via SSE", { deviceId, cmdId: cmd.id });
+            controller.enqueue(encoder.encode(`data: ${event}\n\n`));
+          },
+        )
+        // Escuta cancelamentos
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "device_commands",
+            filter: `device_id=eq.${deviceId}`,
+          },
+          (payload: { new: { id: string; status: string } }) => {
+            const cmd = payload.new;
+            if (cmd.status !== "cancelled") return;
 
-      // Intervalo em horas (SEND_INTERVAL do ESP = 5s)
-      const intervalHours = 5 / 3600;
+            const event = JSON.stringify({ id: cmd.id, action: "stop" });
+            log.log("Stop enviado via SSE", { deviceId, cmdId: cmd.id });
+            controller.enqueue(encoder.encode(`data: ${event}\n\n`));
+          },
+        )
+        .subscribe();
 
-      // Estabilidade postural: inverso da variação do giroscópio (0-100)
-      const stability = Math.max(0, Math.min(100, 100 - gyroMag * 2));
-
-      metrics = {
-        stepCount: isWalking ? 1 : 0,
-        averageCadence: isWalking ? 60 + activityLevel * 100 : 0,
-        timeSeated: isSeated ? intervalHours : 0,
-        timeStanding: isStanding ? intervalHours : 0,
-        timeWalking: isWalking ? intervalHours : 0,
-        gaitSpeed: isWalking ? 0.3 + activityLevel * 2 : 0,
-        posturalStability: stability,
-        fallDetected: possibleFall,
-        inactivityEpisodes: 0,
-        inactivityAvgDuration: 0,
-        tugEstimated: 0,
-        abruptTransitions: abruptTransition ? 1 : 0,
-        hourlyActivity: activityLevel * 100,
-      };
-
-      log.log("🔬 Métricas computadas do raw", {
-        accelMag: accelMag.toFixed(3),
-        gyroMag: gyroMag.toFixed(3),
-        activityLevel: activityLevel.toFixed(3),
-        isWalking,
-        stability: stability.toFixed(0),
-      });
-    }
-
-    const patient = (await kv.get(
-      `user:${device.userId}:patient:${device.patientId}`,
-    )) as Patient | null;
-
-    if (!patient) {
-      log.error("Paciente não encontrado para dispositivo", {
-        deviceId,
-        patientId: device.patientId,
-      });
-      return c.json({ error: "Paciente não encontrado" }, 404);
-    }
-
-    const currentMetrics = patient.metrics || {};
-    const now = new Date();
-    const currentHour = now.getHours();
-
-    // Atualizar métricas com média ponderada
-    const updatedMetrics: PatientMetrics = {
-      stepCount: (currentMetrics.stepCount || 0) + (metrics?.stepCount || 0),
-      averageCadence:
-        metrics?.averageCadence !== undefined
-          ? (currentMetrics.averageCadence || metrics.averageCadence) * 0.7 +
-            metrics.averageCadence * 0.3
-          : currentMetrics.averageCadence || 0,
-      timeSeated: (currentMetrics.timeSeated || 0) + (metrics?.timeSeated || 0),
-      timeStanding:
-        (currentMetrics.timeStanding || 0) + (metrics?.timeStanding || 0),
-      timeWalking:
-        (currentMetrics.timeWalking || 0) + (metrics?.timeWalking || 0),
-      gaitSpeed:
-        metrics?.gaitSpeed !== undefined
-          ? (currentMetrics.gaitSpeed || metrics.gaitSpeed) * 0.7 +
-            metrics.gaitSpeed * 0.3
-          : currentMetrics.gaitSpeed || 0,
-      posturalStability:
-        metrics?.posturalStability !== undefined
-          ? (currentMetrics.posturalStability || metrics.posturalStability) *
-              0.8 +
-            metrics.posturalStability * 0.2
-          : currentMetrics.posturalStability || 0,
-      fallsDetected:
-        currentMetrics.fallsDetected || metrics?.fallDetected || false,
-      fallsTimestamp: metrics?.fallDetected
-        ? now.toLocaleString("pt-BR")
-        : currentMetrics.fallsTimestamp,
-      inactivityEpisodes:
-        (currentMetrics.inactivityEpisodes || 0) +
-        (metrics?.inactivityEpisodes || 0),
-      inactivityAvgDuration:
-        metrics?.inactivityAvgDuration !== undefined
-          ? (currentMetrics.inactivityAvgDuration ||
-              metrics.inactivityAvgDuration) *
-              0.7 +
-            metrics.inactivityAvgDuration * 0.3
-          : currentMetrics.inactivityAvgDuration || 0,
-      tugEstimated:
-        metrics?.tugEstimated !== undefined && metrics.tugEstimated > 0
-          ? metrics.tugEstimated
-          : currentMetrics.tugEstimated || 0,
-      abruptTransitions:
-        (currentMetrics.abruptTransitions || 0) +
-        (metrics?.abruptTransitions || 0),
-      circadianPattern: (() => {
-        const pattern = [
-          ...(currentMetrics.circadianPattern || Array(24).fill(0)),
-        ];
-        if (metrics?.hourlyActivity !== undefined) {
-          if (
-            Array.isArray(metrics.hourlyActivity) &&
-            metrics.hourlyActivity.length === 24
-          ) {
-            return metrics.hourlyActivity;
-          }
-          pattern[currentHour] =
-            (pattern[currentHour] || 0) +
-            (typeof metrics.hourlyActivity === "number"
-              ? metrics.hourlyActivity
-              : 0);
+      // Heartbeat a cada 30s para manter conexão viva
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(": heartbeat\n\n"));
+        } catch {
+          clearInterval(heartbeat);
+          supabase.removeChannel(channel);
         }
-        return pattern;
-      })(),
-    };
+      }, 30_000);
+    },
+  });
 
-    // Salvar métrica histórica
-    const metricId = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    await kv.set(`metrics:${device.patientId}:${metricId}`, {
-      deviceId,
-      patientId: device.patientId,
-      timestamp: now.toISOString(),
-      deviceTimestamp: timestamp,
-      metrics: metrics || {},
-      raw: raw || null,
-    });
-
-    // Atualizar paciente com novas métricas
-    await kv.set(`user:${device.userId}:patient:${device.patientId}`, {
-      ...patient,
-      metrics: updatedMetrics,
-      lastUpdate: now.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-      lastUpdateTs: now.getTime(),
-    });
-
-    // Criar alertas se necessário
-    if (metrics?.fallDetected) {
-      const alertId = crypto.randomUUID();
-      await kv.set(`alert:${device.patientId}:${alertId}`, {
-        type: "fall_detected",
-        timestamp: now.toISOString(),
-        acknowledged: false,
-        details: { raw: raw || null },
-      });
-      log.warn("ALERTA: Queda detectada", { patientId: device.patientId });
-    }
-
-    if (metrics?.inactivityEpisodes && metrics.inactivityEpisodes > 0) {
-      const alertId = crypto.randomUUID();
-      await kv.set(`alert:${device.patientId}:${alertId}`, {
-        type: "prolonged_inactivity",
-        timestamp: now.toISOString(),
-        duration: metrics.inactivityAvgDuration || 0,
-        acknowledged: false,
-      });
-      log.warn("ALERTA: Inatividade prolongada", {
-        patientId: device.patientId,
-      });
-    }
-
-    return c.json({
-      success: true,
-      metricId,
-      updatedMetrics: {
-        stepCount: updatedMetrics.stepCount,
-        averageCadence: parseFloat(updatedMetrics.averageCadence.toFixed(1)),
-        gaitSpeed: parseFloat(updatedMetrics.gaitSpeed.toFixed(2)),
-        posturalStability: parseFloat(
-          updatedMetrics.posturalStability.toFixed(0),
-        ),
-      },
-    });
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao processar dados IoT", errorMessage);
-    return c.json({ error: "Erro ao processar dados: " + errorMessage }, 500);
-  }
+  return new Response(stream, {
+    headers: {
+      "Content-Type":  "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection":    "keep-alive",
+    },
+  });
 });
 
-/**
- * POST /iot/reset-daily
- * Reseta métricas diárias do paciente
- * Autenticação via X-Device-Key e X-Device-Id
- */
-app.post("/iot/reset-daily", async (c: Context) => {
+// ============================================================
+// POST /iot/command
+// Chamado pela dashboard ao clicar "Iniciar".
+// Body: { device_id, session_id, test_type }
+// ============================================================
+app.post("/command", requireAuth, async (c: Context) => {
   try {
-    const apiKey = c.req.header("X-Device-Key");
-    const deviceId = c.req.header("X-Device-Id");
-
-    if (!apiKey || !deviceId) {
-      log.error("Credenciais não fornecidas para reset");
-      return c.json({ error: "Credenciais não fornecidas" }, 401);
-    }
-
-    const device = (await kv.get(`device:${deviceId}`)) as IoTDevice | null;
-    if (!device || device.apiKey !== apiKey) {
-      log.error("Dispositivo não autorizado para reset", { deviceId });
-      return c.json({ error: "Dispositivo não autorizado" }, 401);
-    }
-
-    const patient = (await kv.get(
-      `user:${device.userId}:patient:${device.patientId}`,
-    )) as Patient | null;
-
-    if (!patient) {
-      return c.json({ error: "Paciente não encontrado" }, 404);
-    }
-
-    // Resetar métricas diárias, mantendo algumas médias
-    const resetMetrics: PatientMetrics = {
-      stepCount: 0,
-      averageCadence: 0,
-      timeSeated: 0,
-      timeStanding: 0,
-      timeWalking: 0,
-      gaitSpeed: patient.metrics?.gaitSpeed || 0,
-      posturalStability: patient.metrics?.posturalStability || 0,
-      fallsDetected: false,
-      fallsTimestamp: undefined,
-      inactivityEpisodes: 0,
-      inactivityAvgDuration: 0,
-      tugEstimated: patient.metrics?.tugEstimated || 0,
-      abruptTransitions: 0,
-      circadianPattern: Array(24).fill(0),
+    const body = await c.req.json() as {
+      device_id: string;
+      session_id: string;
+      test_type: TestType;
     };
 
-    await kv.set(`user:${device.userId}:patient:${device.patientId}`, {
-      ...patient,
-      metrics: resetMetrics,
-      lastUpdate: new Date().toLocaleString("pt-BR"),
-    });
+    const { device_id, session_id, test_type } = body;
 
-    log.log("🔄 Métricas diárias resetadas", { patientId: device.patientId });
+    if (!device_id || !session_id || !test_type) {
+      return c.json(
+        { error: "Campos 'device_id', 'session_id' e 'test_type' são obrigatórios" },
+        400,
+      );
+    }
 
-    return c.json({ success: true, message: "Métricas diárias resetadas" });
+    const duration_max = DURATION_MAX[test_type];
+    if (!duration_max) {
+      return c.json({ error: `test_type inválido: ${test_type}` }, 400);
+    }
+
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from("device_commands")
+      .insert({ device_id, session_id, test_type, duration_max, status: "pending" })
+      .select()
+      .single();
+
+    if (error) {
+      log.error("Erro ao criar comando", error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    log.log("✅ Comando criado", { id: data.id, device_id, test_type });
+    return c.json({ command: data }, 201);
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao resetar métricas", errorMessage);
-    return c.json({ error: errorMessage }, 500);
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao criar comando", msg);
+    return c.json({ error: msg }, 500);
   }
 });
 
-/**
- * POST /iot/devices
- * Registra um novo dispositivo IoT para um paciente
- * Requer autenticação de usuário
- */
-app.post("/iot/devices", requireAuth, async (c: Context) => {
+// ============================================================
+// PATCH /iot/command/:id
+// Chamado pela dashboard ao clicar "Encerrar".
+// Body: { status: "cancelled" | "done" }
+// ============================================================
+app.patch("/command/:id", requireAuth, async (c: Context) => {
   try {
-    const userId = c.get("userId");
-    const { patientId, deviceName } = await c.req.json();
+    const cmdId = c.req.param("id");
+    const body = await c.req.json() as { status: string };
 
-    log.log("Registrando dispositivo IoT", { userId, patientId });
-
-    if (!patientId) {
-      log.error("ID do paciente não fornecido");
-      return c.json({ error: "ID do paciente é obrigatório" }, 400);
+    if (body.status !== "cancelled" && body.status !== "done") {
+      return c.json({ error: "Status deve ser 'cancelled' ou 'done'" }, 400);
     }
 
-    const patient = (await kv.get(
-      `user:${userId}:patient:${patientId}`,
-    )) as Patient | null;
-    if (!patient) {
-      log.error("Paciente não encontrado para registro de dispositivo", {
-        patientId,
-      });
-      return c.json({ error: "Paciente não encontrado" }, 404);
+    const supabase = getSupabaseServiceClient();
+    const { data, error } = await supabase
+      .from("device_commands")
+      .update({ status: body.status })
+      .eq("id", cmdId)
+      .select()
+      .single();
+
+    if (error) {
+      log.error("Erro ao atualizar comando", error.message);
+      return c.json({ error: error.message }, 500);
     }
 
-    const newDeviceId = crypto.randomUUID();
-    const apiKey = crypto.randomUUID().replace(/-/g, "");
+    if (!data) {
+      return c.json({ error: "Comando não encontrado" }, 404);
+    }
 
-    const device: IoTDevice = {
-      deviceId: newDeviceId,
-      apiKey,
-      deviceName: deviceName || `Sensor de ${patient.name}`,
-      patientId,
-      userId,
-      createdAt: new Date().toISOString(),
-    };
-
-    await kv.set(`device:${newDeviceId}`, device);
-
-    log.log("✅ Dispositivo IoT registrado", {
-      deviceId: newDeviceId,
-      patientId,
-    });
-
-    return c.json({
-      device: {
-        deviceId: newDeviceId,
-        apiKey,
-        deviceName: device.deviceName,
-        patientId,
-      },
-      instructions: "Use estes valores no código do ESP32",
-    });
+    log.log("✅ Comando atualizado", { id: cmdId, status: body.status });
+    return c.json({ command: data });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Erro desconhecido";
-    log.error("Erro ao registrar dispositivo", errorMessage);
-    return c.json(
-      { error: "Erro ao registrar dispositivo: " + errorMessage },
-      500,
-    );
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao atualizar comando", msg);
+    return c.json({ error: msg }, 500);
   }
 });
 
-// Handler para Deno Serve
+// ============================================================
+// POST /iot/reading
+// Chamado pelo ESP32 ao terminar a coleta.
+// Sem autenticação JWT (dispositivo IoT).
+// Body: { session_id, test_type, command_id?, raw_data?, oscillation_metrics?, gait_metrics? }
+// ============================================================
+app.post("/reading", async (c: Context) => {
+  try {
+    const body = await c.req.json() as DeviceReadingInsert & { command_id?: string };
+
+    if (!body.session_id || !body.test_type) {
+      return c.json(
+        { error: "Campos 'session_id' e 'test_type' são obrigatórios" },
+        400,
+      );
+    }
+
+    const supabase = getSupabaseServiceClient();
+
+    const { data, error } = await supabase
+      .from("device_readings")
+      .insert({
+        session_id:           body.session_id,
+        test_type:            body.test_type,
+        raw_data:             body.raw_data             ?? null,
+        oscillation_metrics:  body.oscillation_metrics  ?? null,
+        gait_metrics:         body.gait_metrics         ?? null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      log.error("Erro ao salvar leitura", error.message);
+      return c.json({ error: error.message }, 500);
+    }
+
+    // Marca o comando como concluído
+    if (body.command_id) {
+      await supabase
+        .from("device_commands")
+        .update({ status: "done" })
+        .eq("id", body.command_id);
+    }
+
+    log.log("✅ Leitura salva", { id: data.id, testType: body.test_type });
+    return c.json({ reading: data }, 201);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Erro desconhecido";
+    log.error("Exceção ao salvar leitura", msg);
+    return c.json({ error: msg }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

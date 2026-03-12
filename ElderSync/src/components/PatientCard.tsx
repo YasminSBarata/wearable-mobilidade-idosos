@@ -1,17 +1,29 @@
 import { User, Trash2 } from "lucide-react";
-import type { PatientData } from "./Dashboard";
+import type { Patient, TestSession } from "../lib/types";
 import { cn } from "../utils/cn";
 
+function calcAge(birthDate?: string | null): string {
+  if (!birthDate) return "";
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return `${age} anos`;
+}
+
 interface PatientCardProps {
-  patient: PatientData;
-  isSelected: boolean;
+  patient: Patient;
+  lastSession?: TestSession | null;
+  isSelected?: boolean;
   onClick: () => void;
   onDelete?: (patientId: string) => void;
 }
 
 export function PatientCard({
   patient,
-  isSelected,
+  lastSession,
+  isSelected = false,
   onClick,
   onDelete,
 }: PatientCardProps) {
@@ -21,6 +33,8 @@ export function PatientCard({
       onDelete(patient.id);
     }
   };
+
+  const age = calcAge(patient.birth_date);
 
   return (
     <button
@@ -35,7 +49,7 @@ export function PatientCard({
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "p-2 rounded-full",
+            "p-2 rounded-full shrink-0",
             isSelected ? "bg-[#29D68B]" : "bg-gray-200",
           )}
         >
@@ -48,7 +62,18 @@ export function PatientCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 truncate">{patient.name}</p>
-          <p className="text-sm text-gray-500">{patient.age} anos</p>
+          {age && <p className="text-sm text-gray-500">{age}</p>}
+          {lastSession ? (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Última sessão:{" "}
+              {new Date(lastSession.date).toLocaleDateString("pt-BR")}
+              {lastSession.sppb_total != null && (
+                <> · SPPB {lastSession.sppb_total}/12</>
+              )}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-0.5">Sem sessões</p>
+          )}
         </div>
         {onDelete && (
           <div
@@ -60,12 +85,6 @@ export function PatientCard({
           </div>
         )}
       </div>
-
-      {patient.metrics.fallsDetected && (
-        <div className="mt-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded flex items-center gap-1">
-          <span>Alerta ativo</span>
-        </div>
-      )}
     </button>
   );
 }

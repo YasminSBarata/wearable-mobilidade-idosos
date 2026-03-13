@@ -19,7 +19,12 @@ export interface TestSession {
   notes?: string | null;
   balance_total?: number | null;
   gait_score?: number | null;
+  gait_best_time?: number | null;
+  gait_oscillation_index_1?: number | null;
+  gait_oscillation_index_2?: number | null;
   chair_score?: number | null;
+  chair_time?: number | null;
+  chair_avg_inclination?: number | null;
   sppb_total?: number | null;
   tug_time?: number | null;
   tug_classification?: string | null;

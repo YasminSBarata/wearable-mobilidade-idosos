@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import type { Patient, TestSession } from "../lib/types";
 import { cn } from "../utils/cn";
+import { formatDateBR } from "../utils/date";
 
 function tugColor(classification?: string | null): string {
   if (!classification) return "text-gray-500";
@@ -146,7 +147,7 @@ export function SessionHistoryPage() {
                     )}
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">
-                      {new Date(session.date).toLocaleDateString("pt-BR")}
+                      {formatDateBR(session.date)}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {session.examiner_initials || "—"}

@@ -17,10 +17,11 @@ import { PatientFormModal } from "./PatientFormModal";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import type { Patient, TestSession } from "../lib/types";
+import { formatDateBR } from "../utils/date";
 
 function calcAge(birthDate?: string | null): string {
   if (!birthDate) return "";
-  const birth = new Date(birthDate);
+  const birth = new Date(birthDate + "T00:00:00");
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
@@ -167,7 +168,7 @@ export function PatientProfilePage() {
               <p className="text-gray-500 mb-0.5">Nascimento</p>
               <p className="font-medium text-gray-900">
                 {patient.birth_date
-                  ? new Date(patient.birth_date).toLocaleDateString("pt-BR")
+                  ? formatDateBR(patient.birth_date)
                   : "—"}
               </p>
             </div>
@@ -200,7 +201,7 @@ export function PatientProfilePage() {
               <div>
                 <p className="text-gray-500 mb-0.5">Data</p>
                 <p className="font-medium text-gray-900">
-                  {new Date(lastSession.date).toLocaleDateString("pt-BR")}
+                  {formatDateBR(lastSession.date)}
                 </p>
               </div>
               <div>
@@ -254,8 +255,8 @@ export function PatientProfilePage() {
             variant="outline"
             onClick={() => navigate(`/patients/${id}/evolution`)}
             className="gap-2 h-12"
-            disabled
-            title="Disponível após registrar sessões"
+            disabled={!lastSession}
+            title={lastSession ? "Ver evolução do paciente" : "Disponível após registrar sessões"}
           >
             <TrendingUp className="w-4 h-4" />
             Evolução

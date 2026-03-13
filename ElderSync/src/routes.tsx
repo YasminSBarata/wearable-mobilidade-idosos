@@ -1,30 +1,17 @@
-import { createBrowserRouter, Navigate, useNavigate, useParams } from "react-router";
+import { createBrowserRouter, Navigate, useParams } from "react-router";
 import { Login } from "./components/Login";
 import { Signup } from "./components/Signup";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PatientsPage } from "./components/PatientsPage";
 import { PatientProfilePage } from "./components/PatientProfilePage";
 import { SessionHistoryPage } from "./components/SessionHistoryPage";
+import { NewSessionForm } from "./components/NewSessionForm";
+import { EvolutionDashboard } from "./components/EvolutionDashboard";
 
-function NewSessionPlaceholder() {
+function NewSessionPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white rounded-xl border border-gray-200 p-10 text-center max-w-sm">
-        <p className="text-lg font-semibold text-gray-800 mb-2">Nova Sessão</p>
-        <p className="text-sm text-gray-500 mb-6">
-          Formulário de avaliação SPPB + TUG em desenvolvimento (Fase 4).
-        </p>
-        <button
-          onClick={() => navigate(`/patients/${id}`)}
-          className="text-sm text-[#29D68B] hover:underline"
-        >
-          ← Voltar ao perfil
-        </button>
-      </div>
-    </div>
-  );
+  if (!id) return null;
+  return <NewSessionForm patientId={id} />;
 }
 
 export const router = createBrowserRouter([
@@ -66,7 +53,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        Component: NewSessionPlaceholder,
+        Component: NewSessionPage,
       },
     ],
   },
@@ -77,6 +64,16 @@ export const router = createBrowserRouter([
       {
         index: true,
         Component: SessionHistoryPage,
+      },
+    ],
+  },
+  {
+    path: "/patients/:id/evolution",
+    element: <ProtectedRoute />,
+    children: [
+      {
+        index: true,
+        Component: EvolutionDashboard,
       },
     ],
   },

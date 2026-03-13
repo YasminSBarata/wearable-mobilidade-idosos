@@ -94,7 +94,7 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
   };
 
   // ── Salvar módulo e avançar ─────────────────────────────────────────────────
-  const saveModule = async (payload: Record<string, unknown>, nextStep: Step) => {
+  const saveModule = async (payload: object, nextStep: Step) => {
     if (!sessionId) return;
     await apiFetch(`/sessions/${sessionId}`, {
       method: "PUT",

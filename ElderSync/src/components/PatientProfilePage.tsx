@@ -255,8 +255,8 @@ export function PatientProfilePage() {
             variant="outline"
             onClick={() => navigate(`/patients/${id}/evolution`)}
             className="gap-2 h-12"
-            disabled
-            title="Disponível após registrar sessões"
+            disabled={!lastSession}
+            title={lastSession ? "Ver evolução do paciente" : "Disponível após registrar sessões"}
           >
             <TrendingUp className="w-4 h-4" />
             Evolução

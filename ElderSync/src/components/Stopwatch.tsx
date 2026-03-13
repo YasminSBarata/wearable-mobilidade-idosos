@@ -93,29 +93,26 @@ export function Stopwatch({ onStop, disabled, initialDisplay }: StopwatchProps) 
       </div>
 
       <div className="flex gap-2">
-        {state.running ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            onClick={stop}
-            className="gap-1.5"
-          >
-            <Square className="w-3.5 h-3.5" />
-            Parar
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            onClick={start}
-            disabled={state.stopped || disabled}
-            className="gap-1.5 bg-[#29D68B] hover:bg-[#22c07a] text-white"
-          >
-            <Play className="w-3.5 h-3.5" />
-            Iniciar
-          </Button>
-        )}
+        {/* Ambos sempre no React tree — `hidden` (display:none) alterna visibilidade */}
+        <Button
+          type="button"
+          size="sm"
+          onClick={start}
+          disabled={state.stopped || disabled}
+          className={`gap-1.5 bg-[#29D68B] hover:bg-[#22c07a] text-white ${state.running ? "hidden" : ""}`}
+        >
+          <Play className="w-3.5 h-3.5" />
+          Iniciar
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={stop}
+          className={`gap-1.5 bg-red-600 hover:bg-red-700 text-white ${state.running ? "" : "hidden"}`}
+        >
+          <Square className="w-3.5 h-3.5" />
+          Parar
+        </Button>
 
         <Button
           type="button"

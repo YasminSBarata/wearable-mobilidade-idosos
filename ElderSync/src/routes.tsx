@@ -14,6 +14,7 @@ function NewSessionPage() {
   return <NewSessionForm patientId={id} />;
 }
 
+
 export const router = createBrowserRouter([
   {
     path: "/",

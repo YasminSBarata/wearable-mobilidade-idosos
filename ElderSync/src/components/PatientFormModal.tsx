@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { useRef, useState } from "react";
+import { AlertCircle, Calendar } from "lucide-react";
 import type { Patient } from "../lib/types";
 import {
   Dialog,
@@ -35,6 +35,7 @@ export function PatientFormModal({ patient, onClose, onSave }: PatientFormModalP
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const birthDateRef = useRef<HTMLInputElement>(null);
   const isEdit = !!patient;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,12 +84,20 @@ export function PatientFormModal({ patient, onClose, onSave }: PatientFormModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="birthDate">Data de Nascimento</Label>
+            <Label htmlFor="birthDate" className="flex items-center gap-1">
+              Data de Nascimento
+              <Calendar
+                className="size-3.5 text-muted-foreground cursor-pointer"
+                onClick={() => birthDateRef.current?.showPicker()}
+              />
+            </Label>
             <Input
+              ref={birthDateRef}
               id="birthDate"
               type="date"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
+              className="[&::-webkit-calendar-picker-indicator]:hidden"
             />
           </div>
 

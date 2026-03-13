@@ -12,6 +12,7 @@ import { ChairStandModule, type ChairStandModuleData } from "./ChairStandModule"
 import { TUGModule, type TUGModuleData } from "./TUGModule";
 import { apiFetch } from "../utils/api";
 import { calculateSPPBTotal } from "../lib/scoring/sppb";
+import { todayLocal } from "../utils/date";
 
 // Importado apenas para instanciar o hook — dispositivo é opcional
 import { useDeviceSession } from "../hooks/useDeviceSession";
@@ -48,7 +49,7 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
 
   // Sessão
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocal);
   const [examinerInitials, setExaminerInitials] = useState("");
   const [notes, setNotes] = useState("");
   const [creating, setCreating] = useState(false);

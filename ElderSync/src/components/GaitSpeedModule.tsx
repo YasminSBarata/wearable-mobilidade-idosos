@@ -85,13 +85,14 @@ function AttemptRow({
         }}
         initialDisplay={attempt.time}
       />
-      {attempt.time != null && completed === null && (
-        <div className="flex flex-col sm:flex-row gap-2">
+      {attempt.time != null && (
+        <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
             size="sm"
-            className="gap-1.5 flex-1 bg-green-600 hover:bg-green-700 text-white"
+            variant={completed === true ? "default" : "outline"}
             onClick={() => setCompleted(true)}
+            className={`gap-1.5 ${completed === true ? "bg-green-600 hover:bg-green-700" : ""}`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
             Completou
@@ -99,9 +100,9 @@ function AttemptRow({
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className="gap-1.5 flex-1"
+            variant={completed === false ? "default" : "outline"}
             onClick={() => setCompleted(false)}
+            className={`gap-1.5 ${completed === false ? "bg-red-600 hover:bg-red-700" : ""}`}
           >
             <XCircle className="w-3.5 h-3.5" />
             Não completou
@@ -205,7 +206,7 @@ export function GaitSpeedModule({ onSave, initialData, disabled }: GaitSpeedModu
               variant={distance === d ? "default" : "outline"}
               disabled={saved || disabled}
               onClick={() => setDistance(d)}
-              className={distance === d ? "bg-gray-900 text-white" : ""}
+              className={distance === d ? "bg-[#29D68B] hover:bg-[#22c07a] text-white" : ""}
             >
               {d} metros
             </Button>

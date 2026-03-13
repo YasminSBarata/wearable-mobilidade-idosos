@@ -6,6 +6,7 @@ import { PatientsPage } from "./components/PatientsPage";
 import { PatientProfilePage } from "./components/PatientProfilePage";
 import { SessionHistoryPage } from "./components/SessionHistoryPage";
 import { NewSessionForm } from "./components/NewSessionForm";
+import { EvolutionDashboard } from "./components/EvolutionDashboard";
 
 function NewSessionPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +64,16 @@ export const router = createBrowserRouter([
       {
         index: true,
         Component: SessionHistoryPage,
+      },
+    ],
+  },
+  {
+    path: "/patients/:id/evolution",
+    element: <ProtectedRoute />,
+    children: [
+      {
+        index: true,
+        Component: EvolutionDashboard,
       },
     ],
   },

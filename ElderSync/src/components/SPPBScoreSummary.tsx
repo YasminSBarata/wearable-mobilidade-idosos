@@ -95,7 +95,7 @@ export function SPPBScoreSummary({
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
           TUG — Timed Up and Go
         </p>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <p className="text-2xl font-bold text-gray-900">
               {tugTime != null ? `${tugTime.toFixed(1)}s` : "—"}

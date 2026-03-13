@@ -143,7 +143,7 @@ export function SessionHistoryPage() {
                 <Calendar className="w-5 h-5 text-gray-400" />
                 <h2 className="text-lg font-semibold text-gray-900">Resumo</h2>
               </div>
-              <div className="flex flex-row items-start justify-between">
+              <div className="flex flex-col min-[480px]:flex-row items-start justify-between gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Total de Sessões</p>
                   <p className="text-2xl font-bold text-gray-900">{sessions.length}</p>

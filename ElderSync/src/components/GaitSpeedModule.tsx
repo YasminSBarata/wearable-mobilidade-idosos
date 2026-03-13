@@ -86,11 +86,11 @@ function AttemptRow({
         initialDisplay={attempt.time}
       />
       {attempt.time != null && completed === null && (
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             type="button"
             size="sm"
-            className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+            className="gap-1.5 flex-1 bg-green-600 hover:bg-green-700 text-white"
             onClick={() => setCompleted(true)}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -100,7 +100,7 @@ function AttemptRow({
             type="button"
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            className="gap-1.5 flex-1"
             onClick={() => setCompleted(false)}
           >
             <XCircle className="w-3.5 h-3.5" />

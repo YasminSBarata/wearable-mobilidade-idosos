@@ -129,15 +129,15 @@ export function PatientProfilePage() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => navigate("/patients")}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
+                className="p-2 hover:bg-gray-100 rounded-lg transition shrink-0"
               >
                 <ArrowLeft className="w-6 h-6 text-gray-600" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{patient.name}</h1>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{patient.name}</h1>
                 <p className="text-sm text-gray-600">
                   {age != null ? `${age} anos` : ""}{age != null && patient.gender ? " \u2022 " : ""}{genderLabel(patient.gender) !== "\u2014" ? genderLabel(patient.gender) : ""}
                 </p>
@@ -214,7 +214,7 @@ export function PatientProfilePage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Última Avaliação</h2>
           {lastSession ? (
-            <div className="flex flex-row items-start justify-between">
+            <div className="flex flex-col min-[480px]:flex-row items-start justify-between gap-4">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Data</p>
                 <p className="font-medium text-gray-900">
@@ -248,23 +248,23 @@ export function PatientProfilePage() {
         </div>
 
         {/* Ações */}
-        <div className="flex flex-row gap-4">
+        <div className="flex flex-col min-[480px]:flex-row gap-3">
           <button
             onClick={() => navigate(`/patients/${id}/session/new`)}
-            className="flex-1 px-6 py-4 bg-[#29D68B] text-white rounded-lg font-semibold hover:bg-[#24c07d] transition"
+            className="flex-1 px-4 py-3 min-[480px]:px-6 min-[480px]:py-4 bg-[#29D68B] text-white rounded-lg font-semibold hover:bg-[#24c07d] transition"
           >
             Nova Sessão
           </button>
           <button
             onClick={() => navigate(`/patients/${id}/sessions`)}
-            className="flex-1 px-6 py-4 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+            className="flex-1 px-4 py-3 min-[480px]:px-6 min-[480px]:py-4 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
           >
             Histórico de Sessões
           </button>
           <button
             onClick={() => navigate(`/patients/${id}/evolution`)}
             disabled={!lastSession}
-            className="flex-1 px-6 py-4 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-3 min-[480px]:px-6 min-[480px]:py-4 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Evolução
           </button>

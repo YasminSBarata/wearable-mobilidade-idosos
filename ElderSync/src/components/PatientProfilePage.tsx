@@ -3,9 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   User,
-  ClipboardList,
-  TrendingUp,
-  Plus,
+  Trash2,
   Pencil,
   AlertTriangle,
   X,
@@ -19,14 +17,14 @@ import { Alert, AlertDescription } from "./ui/alert";
 import type { Patient, TestSession } from "../lib/types";
 import { formatDateBR } from "../utils/date";
 
-function calcAge(birthDate?: string | null): string {
-  if (!birthDate) return "";
+function calcAge(birthDate?: string | null): number | null {
+  if (!birthDate) return null;
   const birth = new Date(birthDate + "T00:00:00");
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return `${age} anos`;
+  return age;
 }
 
 function genderLabel(g?: string | null) {
@@ -36,12 +34,20 @@ function genderLabel(g?: string | null) {
   return "—";
 }
 
-function sppbClassification(total?: number | null): { label: string; color: string } | null {
-  if (total == null) return null;
-  if (total <= 3) return { label: "Limitação grave", color: "text-red-600" };
-  if (total <= 6) return { label: "Limitação moderada", color: "text-orange-500" };
-  if (total <= 9) return { label: "Limitação leve", color: "text-yellow-500" };
-  return { label: "Sem limitação", color: "text-green-600" };
+function getSPPBBadge(score?: number | null) {
+  if (score == null) return null;
+  if (score >= 10) return { bg: "bg-green-50", text: "text-green-700", label: "Bom" };
+  if (score >= 7) return { bg: "bg-yellow-50", text: "text-yellow-700", label: "Leve" };
+  if (score >= 4) return { bg: "bg-orange-50", text: "text-orange-700", label: "Moderado" };
+  return { bg: "bg-red-50", text: "text-red-700", label: "Grave" };
+}
+
+function getTUGBadge(time?: number | null) {
+  if (time == null) return null;
+  if (time <= 10) return { bg: "bg-green-50", text: "text-green-700", label: "Mobilidade Normal" };
+  if (time <= 20) return { bg: "bg-yellow-50", text: "text-yellow-700", label: "Algum Comprometimento" };
+  if (time <= 30) return { bg: "bg-orange-50", text: "text-orange-700", label: "Comprometimento Moderado" };
+  return { bg: "bg-red-50", text: "text-red-700", label: "Comprometimento Grave" };
 }
 
 export function PatientProfilePage() {
@@ -113,120 +119,127 @@ export function PatientProfilePage() {
     );
   }
 
-  const sppbInfo = sppbClassification(lastSession?.sppb_total);
+  const age = calcAge(patient.birth_date);
+  const sppbBadge = getSPPBBadge(lastSession?.sppb_total);
+  const tugBadge = getTUGBadge(lastSession?.tug_time);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/patients")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">{patient.name}</h1>
-              <p className="text-sm text-gray-500">Perfil do paciente</p>
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={() => navigate("/patients")}
+                className="p-2 hover:bg-gray-100 rounded-lg transition shrink-0"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-600" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{patient.name}</h1>
+                <p className="text-sm text-gray-600">
+                  {age != null ? `${age} anos` : ""}{age != null && patient.gender ? " \u2022 " : ""}{genderLabel(patient.gender) !== "\u2014" ? genderLabel(patient.gender) : ""}
+                </p>
+              </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)} className="gap-1.5">
-              <Pencil className="w-4 h-4" />
-              Editar
-            </Button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <Pencil className="w-5 h-5 text-gray-600" />
+              </button>
+              <button className="p-2 hover:bg-red-50 rounded-lg transition">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {error && (
           <Alert variant="destructive">
             <AlertTriangle className="size-4" />
             <AlertDescription>
               <div className="flex items-start justify-between gap-2">
                 <span>{error}</span>
-                <Button variant="ghost" size="icon" onClick={() => setError("")} className="h-5 w-5 shrink-0">
+                <button onClick={() => setError("")} className="shrink-0">
                   <X className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Dados cadastrais */}
+        {/* Informações do Paciente */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2 mb-4">
-            <User className="w-4 h-4" />
-            Dados Cadastrais
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500 mb-0.5">Idade</p>
-              <p className="font-medium text-gray-900">
-                {calcAge(patient.birth_date) || "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-0.5">Nascimento</p>
-              <p className="font-medium text-gray-900">
-                {patient.birth_date
-                  ? formatDateBR(patient.birth_date)
-                  : "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500 mb-0.5">Sexo</p>
-              <p className="font-medium text-gray-900">{genderLabel(patient.gender)}</p>
-            </div>
-            {patient.clinical_notes && (
-              <div className="col-span-2 sm:col-span-3">
-                <p className="text-gray-500 mb-0.5 flex items-center gap-1">
-                  <FileText className="w-3 h-3" />
-                  Notas Clínicas
-                </p>
-                <p className="font-medium text-gray-900 whitespace-pre-wrap">
-                  {patient.clinical_notes}
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações do Paciente</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-600">Data de Nascimento</p>
+                <p className="font-medium text-gray-900">
+                  {patient.birth_date ? formatDateBR(patient.birth_date) : "\u2014"}
                 </p>
               </div>
-            )}
+            </div>
+            <div className="flex items-center gap-3">
+              <User className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-600">Idade</p>
+                <p className="font-medium text-gray-900">
+                  {age != null ? `${age} anos` : "\u2014"}
+                </p>
+              </div>
+            </div>
           </div>
+          {patient.clinical_notes && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-start gap-3">
+                <FileText className="w-5 h-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Notas Clínicas</p>
+                  <p className="text-gray-900 whitespace-pre-wrap">{patient.clinical_notes}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Última sessão */}
+        {/* Última Avaliação */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2 mb-4">
-            <Calendar className="w-4 h-4" />
-            Última Avaliação
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Última Avaliação</h2>
           {lastSession ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div className="flex flex-col min-[480px]:flex-row items-start justify-between gap-4">
               <div>
-                <p className="text-gray-500 mb-0.5">Data</p>
+                <p className="text-sm text-gray-600 mb-1">Data</p>
                 <p className="font-medium text-gray-900">
                   {formatDateBR(lastSession.date)}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500 mb-0.5">SPPB Total</p>
-                <p className="font-medium text-gray-900">
-                  {lastSession.sppb_total != null ? `${lastSession.sppb_total}/12` : "—"}
-                </p>
-                {sppbInfo && (
-                  <p className={`text-xs mt-0.5 ${sppbInfo.color}`}>{sppbInfo.label}</p>
+                <p className="text-sm text-gray-600 mb-2">SPPB Score</p>
+                {sppbBadge ? (
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${sppbBadge.bg} ${sppbBadge.text}`}>
+                    {lastSession.sppb_total}/12 - {sppbBadge.label}
+                  </span>
+                ) : (
+                  <p className="font-medium text-gray-900">{"\u2014"}</p>
                 )}
               </div>
               <div>
-                <p className="text-gray-500 mb-0.5">TUG</p>
-                <p className="font-medium text-gray-900">
-                  {lastSession.tug_time != null ? `${lastSession.tug_time}s` : "—"}
-                </p>
-                {lastSession.tug_classification && (
-                  <p className="text-xs text-gray-500 mt-0.5">{lastSession.tug_classification}</p>
+                <p className="text-sm text-gray-600 mb-2">TUG</p>
+                {tugBadge ? (
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${tugBadge.bg} ${tugBadge.text}`}>
+                    {lastSession.tug_time}s - {tugBadge.label}
+                  </span>
+                ) : (
+                  <p className="font-medium text-gray-900">{"\u2014"}</p>
                 )}
-              </div>
-              <div>
-                <p className="text-gray-500 mb-0.5">Examinador</p>
-                <p className="font-medium text-gray-900">
-                  {lastSession.examiner_initials || "—"}
-                </p>
               </div>
             </div>
           ) : (
@@ -235,34 +248,28 @@ export function PatientProfilePage() {
         </div>
 
         {/* Ações */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Button
+        <div className="flex flex-col min-[480px]:flex-row gap-3">
+          <button
             onClick={() => navigate(`/patients/${id}/session/new`)}
-            className="gap-2 h-12"
+            className="flex-1 px-4 py-3 min-[480px]:px-6 min-[480px]:py-4 bg-[#29D68B] text-white rounded-lg font-semibold hover:bg-[#24c07d] transition"
           >
-            <Plus className="w-4 h-4" />
             Nova Sessão
-          </Button>
-          <Button
-            variant="outline"
+          </button>
+          <button
             onClick={() => navigate(`/patients/${id}/sessions`)}
-            className="gap-2 h-12"
+            className="flex-1 px-4 py-3 min-[480px]:px-6 min-[480px]:py-4 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
           >
-            <ClipboardList className="w-4 h-4" />
             Histórico de Sessões
-          </Button>
-          <Button
-            variant="outline"
+          </button>
+          <button
             onClick={() => navigate(`/patients/${id}/evolution`)}
-            className="gap-2 h-12"
             disabled={!lastSession}
-            title={lastSession ? "Ver evolução do paciente" : "Disponível após registrar sessões"}
+            className="flex-1 px-4 py-3 min-[480px]:px-6 min-[480px]:py-4 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <TrendingUp className="w-4 h-4" />
             Evolução
-          </Button>
+          </button>
         </div>
-      </div>
+      </main>
 
       {showEditModal && (
         <PatientFormModal

@@ -1,10 +1,11 @@
 import { User, Trash2 } from "lucide-react";
 import type { Patient, TestSession } from "../lib/types";
 import { cn } from "../utils/cn";
+import { formatDateBR } from "../utils/date";
 
 function calcAge(birthDate?: string | null): string {
   if (!birthDate) return "";
-  const birth = new Date(birthDate);
+  const birth = new Date(birthDate + "T00:00:00");
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
@@ -66,7 +67,7 @@ export function PatientCard({
           {lastSession ? (
             <p className="text-xs text-gray-400 mt-0.5">
               Última sessão:{" "}
-              {new Date(lastSession.date).toLocaleDateString("pt-BR")}
+              {formatDateBR(lastSession.date)}
               {lastSession.sppb_total != null && (
                 <> · SPPB {lastSession.sppb_total}/12</>
               )}

@@ -37,8 +37,13 @@ export function BalanceSubtest({
   initialData,
 }: BalanceSubtestProps) {
   const [time, setTime] = useState<number | null>(initialData?.time ?? null);
-  const [result, setResult] = useState<BalanceResult>(initialData?.result ?? "not_performed");
-  const [failureReason, setFailureReason] = useState(initialData?.failureReason ?? "");
+  const [result, setResult] = useState<BalanceResult>(
+    initialData?.result ?? "not_performed",
+  );
+  const [resultChosen, setResultChosen] = useState(!!initialData);
+  const [failureReason, setFailureReason] = useState(
+    initialData?.failureReason ?? "",
+  );
   const [phase, setPhase] = useState<"ready" | "timed" | "confirmed">(
     initialData ? "confirmed" : "ready",
   );
@@ -56,7 +61,7 @@ export function BalanceSubtest({
   }
 
   const isConfirmed = phase === "confirmed" || locked;
-  const canConfirm = phase === "timed" && result !== "not_performed";
+  const canConfirm = phase === "timed" && resultChosen;
 
   const resultColor =
     result === "passed"
@@ -75,6 +80,7 @@ export function BalanceSubtest({
     setPhase("ready");
     setTime(null);
     setResult("not_performed");
+    setResultChosen(false);
     setFailureReason("");
   };
 
@@ -97,7 +103,13 @@ export function BalanceSubtest({
               {time != null ? `${time.toFixed(1)}s` : "—"}
             </span>
             {!locked && (
-              <Button type="button" variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2 text-xs">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleEdit}
+                className="h-7 px-2 text-xs"
+              >
                 Editar
               </Button>
             )}
@@ -122,14 +134,20 @@ export function BalanceSubtest({
           {/* Resultado */}
           {phase === "timed" && (
             <div className="space-y-3">
-              <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Resultado</p>
-              <div className="flex gap-2">
+              <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                Resultado
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant={result === "passed" ? "default" : "outline"}
-                  onClick={() => { setResult("passed"); setFailureReason(""); }}
-                  className={`gap-1.5 flex-1 ${result === "passed" ? "bg-green-600 hover:bg-green-700" : ""}`}
+                  onClick={() => {
+                    setResult("passed");
+                    setResultChosen(true);
+                    setFailureReason("");
+                  }}
+                  className={`gap-1.5 ${result === "passed" ? "bg-green-600 hover:bg-green-700" : ""}`}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Passou
@@ -138,8 +156,8 @@ export function BalanceSubtest({
                   type="button"
                   size="sm"
                   variant={result === "failed" ? "default" : "outline"}
-                  onClick={() => setResult("failed")}
-                  className={`gap-1.5 flex-1 ${result === "failed" ? "bg-red-600 hover:bg-red-700" : ""}`}
+                  onClick={() => { setResult("failed"); setResultChosen(true); }}
+                  className={`gap-1.5 ${result === "failed" ? "bg-red-600 hover:bg-red-700" : ""}`}
                 >
                   <XCircle className="w-3.5 h-3.5" />
                   Falhou
@@ -147,9 +165,9 @@ export function BalanceSubtest({
                 <Button
                   type="button"
                   size="sm"
-                  variant={result === "not_performed" ? "default" : "outline"}
-                  onClick={() => setResult("not_performed")}
-                  className="gap-1.5 flex-1"
+                  variant={result === "not_performed" && resultChosen ? "default" : "outline"}
+                  onClick={() => { setResult("not_performed"); setResultChosen(true); }}
+                  className={`gap-1.5 col-span-2 sm:col-span-1 ${result === "not_performed" && resultChosen ? "bg-gray-600 hover:bg-gray-700" : ""}`}
                 >
                   <MinusCircle className="w-3.5 h-3.5" />
                   Não realizado
@@ -175,6 +193,7 @@ export function BalanceSubtest({
               className="text-gray-500"
               onClick={() => {
                 setResult("not_performed");
+                setResultChosen(true);
                 setPhase("timed");
               }}
             >

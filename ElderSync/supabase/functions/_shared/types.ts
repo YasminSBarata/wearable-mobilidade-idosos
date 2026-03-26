@@ -153,6 +153,7 @@ export type TestSessionUpdate = Partial<Omit<TestSession, "id" | "patient_id" | 
 // ============================================================
 
 export type TestType =
+  | "calibrate"
   | "balance_a"
   | "balance_b"
   | "balance_c"

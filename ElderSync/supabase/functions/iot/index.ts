@@ -37,6 +37,7 @@ app.use("*", logger(console.log));
 
 // Duração máxima por tipo de teste (segundos)
 const DURATION_MAX: Record<TestType, number> = {
+  calibrate:     5,
   balance_a:     10,
   balance_b:     10,
   balance_c:     10,

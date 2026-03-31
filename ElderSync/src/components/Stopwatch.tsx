@@ -3,6 +3,8 @@ import { Button } from "./ui/button";
 import { Play, Square, RotateCcw } from "lucide-react";
 
 interface StopwatchProps {
+  /** Chamado ao iniciar o cronômetro. */
+  onStart?: () => void;
   /** Chamado ao parar o cronômetro. Recebe o tempo em segundos (1 decimal). */
   onStop?: (timeSeconds: number) => void;
   disabled?: boolean;
@@ -33,7 +35,7 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function Stopwatch({ onStop, disabled, initialDisplay }: StopwatchProps) {
+export function Stopwatch({ onStart, onStop, disabled, initialDisplay }: StopwatchProps) {
   const [state, dispatch] = useReducer(reducer, {
     elapsed: 0,
     running: false,
@@ -58,7 +60,8 @@ export function Stopwatch({ onStop, disabled, initialDisplay }: StopwatchProps) 
       dispatch({ type: "TICK", elapsed: Date.now() - startTimeRef.current });
     }, 50);
     dispatch({ type: "START" });
-  }, [state.running, disabled]);
+    onStart?.();
+  }, [state.running, disabled, onStart]);
 
   const stop = useCallback(() => {
     if (!state.running) return;

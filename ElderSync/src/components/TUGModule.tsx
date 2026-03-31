@@ -14,7 +14,9 @@ import {
 } from "./ui/select";
 import { Stopwatch } from "./Stopwatch";
 import { TUGClassificationBadge } from "./TUGClassificationBadge";
+import { SensorDataDisplay } from "./SensorDataDisplay";
 import { tugClassificationLabel } from "../lib/scoring/tug";
+import type { UseDeviceSessionReturn } from "../hooks/useDeviceSession";
 
 export interface TUGModuleData {
   tug_time: number | null;
@@ -37,13 +39,14 @@ interface TUGModuleProps {
   onSave: (data: TUGModuleData) => Promise<void>;
   initialData?: Partial<TUGModuleData> | null;
   disabled?: boolean;
+  device?: UseDeviceSessionReturn;
 }
 
 /**
  * Módulo TUG — Timed Up and Go.
  * Cronômetro + campos qualitativos + classificação automática.
  */
-export function TUGModule({ onSave, initialData, disabled }: TUGModuleProps) {
+export function TUGModule({ onSave, initialData, disabled, device }: TUGModuleProps) {
   const [time, setTime] = useState<number | null>(initialData?.tug_time ?? null);
   const [assistiveDevice, setAssistiveDevice] = useState(initialData?.tug_assistive_device ?? "Nenhum");
   const [footwear, setFootwear] = useState(initialData?.tug_footwear ?? "");
@@ -106,11 +109,23 @@ export function TUGModule({ onSave, initialData, disabled }: TUGModuleProps) {
           Paciente pode usar dispositivo de auxílio habitual.
         </p>
         <Stopwatch
-          onStop={(t) => setTime(t)}
+          onStart={() => {
+            if (device) {
+              device.resetDevice();
+              device.startCollection("tug");
+            }
+          }}
+          onStop={(t) => {
+            setTime(t);
+            if (device) device.stopCollection();
+          }}
           initialDisplay={time}
           disabled={disabled || saved}
         />
         {time != null && <TUGClassificationBadge time={time} />}
+        {device?.lastReading?.test_type === "tug" && (
+          <SensorDataDisplay reading={device.lastReading} testType="tug" />
+        )}
       </div>
 
       {/* Campos qualitativos */}

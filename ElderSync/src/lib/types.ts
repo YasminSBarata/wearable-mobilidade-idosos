@@ -2,6 +2,39 @@
  * Tipos compartilhados no frontend — ElderSync v2.0
  */
 
+// ============================================================
+// DADOS DO SENSOR (ESP32 + MPU6050)
+// ============================================================
+
+/** Métricas de oscilação separadas por eixo (AP = antero-posterior, ML = médio-lateral). */
+export interface OscillationMetrics {
+  amplitude_ap: number;
+  amplitude_ml: number;
+  rms_ap: number;
+  rms_ml: number;
+  duration_s: number;
+}
+
+/** Métricas de magnitude escalar + ângulos de inclinação. */
+export interface GaitMetrics {
+  oscillation_index: number;
+  avg_accel_magnitude: number;
+  duration_s: number;
+  max_angle?: number | null;
+  angles_per_rep?: number[] | null;
+}
+
+/** Frame bruto do sensor (armazenado em device_readings.raw_data). */
+export interface RawSensorFrame {
+  ts_ms: number;
+  accel: { x: number; y: number; z: number };
+  gyro: { x: number; y: number; z: number };
+}
+
+// ============================================================
+// PACIENTES
+// ============================================================
+
 export interface Patient {
   id: string;
   name: string;
@@ -56,6 +89,7 @@ export interface TestSession {
   chair_failure_reason?: string | null;
   chair_score?: number | null;
   chair_avg_inclination?: number | null;
+  chair_inclination_per_rep?: number[] | null;
 
   // TUG
   tug_time?: number | null;

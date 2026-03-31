@@ -3,7 +3,9 @@ import { CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Stopwatch } from "./Stopwatch";
 import { FailureReasonSelect } from "./FailureReasonSelect";
+import { SensorDataDisplay } from "./SensorDataDisplay";
 import type { BalanceResult } from "../lib/scoring/balance";
+import type { UseDeviceSessionReturn, IoTTestType } from "../hooks/useDeviceSession";
 
 export interface BalanceSubtestData {
   result: BalanceResult;
@@ -16,12 +18,16 @@ interface BalanceSubtestProps {
   title: string;
   /** Instruções para o fisioterapeuta */
   instructions: string;
+  /** Tipo de teste IoT para este subteste */
+  iotTestType?: IoTTestType;
   /** Bloqueado pela falha no subteste anterior */
   blocked?: boolean;
   /** Impede edição após salvar */
   locked?: boolean;
   onComplete: (data: BalanceSubtestData) => void;
   initialData?: BalanceSubtestData | null;
+  /** Device hook (opcional — se ausente, sensor desativado) */
+  device?: UseDeviceSessionReturn;
 }
 
 /**
@@ -31,10 +37,12 @@ interface BalanceSubtestProps {
 export function BalanceSubtest({
   title,
   instructions,
+  iotTestType,
   blocked = false,
   locked = false,
   onComplete,
   initialData,
+  device,
 }: BalanceSubtestProps) {
   const [time, setTime] = useState<number | null>(initialData?.time ?? null);
   const [result, setResult] = useState<BalanceResult>(
@@ -82,6 +90,7 @@ export function BalanceSubtest({
     setResult("not_performed");
     setResultChosen(false);
     setFailureReason("");
+    if (device) device.resetDevice();
   };
 
   return (
@@ -117,15 +126,24 @@ export function BalanceSubtest({
         )}
       </div>
 
+      {/* Dados do sensor (se disponíveis) */}
+      {isConfirmed && device?.lastReading && iotTestType && device.lastReading.test_type === iotTestType && (
+        <SensorDataDisplay reading={device.lastReading} testType={iotTestType} />
+      )}
+
       {!isConfirmed && (
         <div className="space-y-4">
           {/* Cronômetro */}
           <div>
             <p className="text-xs text-gray-500 mb-2">Tempo</p>
             <Stopwatch
+              onStart={() => {
+                if (device && iotTestType) device.startCollection(iotTestType);
+              }}
               onStop={(t) => {
                 setTime(t);
                 setPhase("timed");
+                if (device) device.stopCollection();
               }}
               initialDisplay={time}
             />

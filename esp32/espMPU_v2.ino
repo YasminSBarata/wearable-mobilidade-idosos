@@ -32,17 +32,7 @@
 #include <WiFiClientSecure.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
-
-// ============================================================
-// CONFIGURAÇÕES — editar antes de fazer upload
-// ============================================================
-
-const char* WIFI_SSID     = "wifi";
-const char* WIFI_PASSWORD = "senha";
-
-// URL base do servidor (Supabase Edge Functions)
-// Exemplo: "https://ewbwxqqwpafqtmiscgsn.supabase.co/functions/v1"
-const char* SERVER_BASE_URL = "https://ewbwxqqwpafqtmiscgsn.supabase.co/functions/v1";
+#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, SERVER_BASE_URL
 
 // Pino do LED de status
 const int LED_PIN = 2;   // LED interno do ESP32; trocar se usar LED externo

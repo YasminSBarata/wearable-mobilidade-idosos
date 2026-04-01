@@ -3,22 +3,31 @@ import { Armchair, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Stopwatch } from "./Stopwatch";
 import { FailureReasonSelect } from "./FailureReasonSelect";
+import { SensorDataDisplay } from "./SensorDataDisplay";
+import { DeviceCooldownBanner } from "./DeviceCooldownBanner";
 import { scoreChairStandModule } from "../lib/scoring/chairStand";
+import type { UseDeviceSessionReturn } from "../hooks/useDeviceSession";
 
 export interface ChairStandModuleData {
   chair_pretest_passed: boolean | null;
   chair_pretest_used_arms: boolean | null;
   chair_pretest_failure_reason: string | null;
+  chair_pretest_max_inclination: number | null;
   chair_time: number | null;
   chair_completed: boolean;
   chair_failure_reason: string | null;
   chair_score: number;
+  chair_avg_inclination: number | null;
+  chair_inclination_per_rep: number[] | null;
 }
 
 interface ChairStandModuleProps {
   onSave: (data: ChairStandModuleData) => Promise<void>;
   initialData?: Partial<ChairStandModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
+  device?: UseDeviceSessionReturn;
 }
 
 /**
@@ -26,7 +35,7 @@ interface ChairStandModuleProps {
  * Pré-teste: levantar UMA vez sem usar os braços.
  * Teste principal: 5 repetições o mais rápido possível (máx. 60s).
  */
-export function ChairStandModule({ onSave, initialData, disabled }: ChairStandModuleProps) {
+export function ChairStandModule({ onSave, initialData, disabled, editMode, device }: ChairStandModuleProps) {
   // Pré-teste
   const [pretestDone, setPretestDone] = useState(initialData?.chair_pretest_passed != null);
   const [pretestPassed, setPretestPassed] = useState<boolean | null>(
@@ -49,9 +58,20 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
   );
   const [mainConfirmed, setMainConfirmed] = useState(initialData?.chair_time != null);
 
+  // Dados do sensor
+  const [pretestMaxInclination, setPretestMaxInclination] = useState<number | null>(
+    initialData?.chair_pretest_max_inclination ?? null,
+  );
+  const [avgInclination, setAvgInclination] = useState<number | null>(
+    initialData?.chair_avg_inclination ?? null,
+  );
+  const [inclinationPerRep, setInclinationPerRep] = useState<number[] | null>(
+    initialData?.chair_inclination_per_rep ?? null,
+  );
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(
-    initialData?.chair_pretest_passed != null,
+    initialData?.chair_pretest_passed != null && !editMode,
   );
 
   const { chair_score } = scoreChairStandModule(
@@ -73,10 +93,13 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
         chair_pretest_passed: pretestPassed,
         chair_pretest_used_arms: pretestUsedArms,
         chair_pretest_failure_reason: pretestFailureReason || null,
+        chair_pretest_max_inclination: pretestMaxInclination,
         chair_time: mainTime,
         chair_completed: mainCompleted ?? false,
         chair_failure_reason: mainFailureReason || null,
         chair_score,
+        chair_avg_inclination: avgInclination,
+        chair_inclination_per_rep: inclinationPerRep,
       });
       setSaved(true);
     } finally {
@@ -109,6 +132,19 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
 
         {!pretestDone ? (
           <div className="space-y-3">
+            {device && device.cooldownRemaining > 0 && (
+              <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+            )}
+            {device && (
+              <Stopwatch
+                onStart={() => {
+                  device.resetDevice();
+                  device.startCollection("chair_pretest");
+                }}
+                onStop={() => device.stopCollection()}
+                disabled={disabled || (device && device.cooldownRemaining > 0) || false}
+              />
+            )}
             <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
@@ -119,6 +155,9 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
                   setPretestPassed(true);
                   setPretestUsedArms(false);
                   setPretestDone(true);
+                  if (device?.lastReading?.gait_metrics?.max_angle != null) {
+                    setPretestMaxInclination(device.lastReading.gait_metrics.max_angle);
+                  }
                 }}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -134,6 +173,9 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
                   setPretestPassed(false);
                   setPretestUsedArms(true);
                   setPretestDone(true);
+                  if (device?.lastReading?.gait_metrics?.max_angle != null) {
+                    setPretestMaxInclination(device.lastReading.gait_metrics.max_angle);
+                  }
                 }}
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -170,6 +212,10 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
           </div>
         )}
 
+        {pretestDone && device?.lastReading?.test_type === "chair_pretest" && (
+          <SensorDataDisplay reading={device.lastReading} testType="chair_pretest" />
+        )}
+
         {pretestDone && !pretestPassed && (
           <FailureReasonSelect
             value={pretestFailureReason}
@@ -191,10 +237,22 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
 
           {!mainConfirmed ? (
             <div className="space-y-3">
+              {device && device.cooldownRemaining > 0 && (
+                <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+              )}
               <Stopwatch
-                onStop={(t) => setMainTime(t)}
+                onStart={() => {
+                  if (device) {
+                    device.resetDevice();
+                    device.startCollection("chair_main");
+                  }
+                }}
+                onStop={(t) => {
+                  setMainTime(t);
+                  if (device) device.stopCollection();
+                }}
                 initialDisplay={mainTime}
-                disabled={disabled}
+                disabled={disabled || (device != null && device.cooldownRemaining > 0)}
               />
 
               {mainTime != null && mainCompleted === null && (
@@ -233,7 +291,21 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => setMainConfirmed(true)}
+                  onClick={() => {
+                    setMainConfirmed(true);
+                    // Capturar dados de inclinação do sensor
+                    const gm = device?.lastReading?.gait_metrics;
+                    if (gm) {
+                      if (gm.angles_per_rep && gm.angles_per_rep.length > 0) {
+                        setInclinationPerRep(gm.angles_per_rep);
+                        const avg = gm.angles_per_rep.reduce((a, b) => a + b, 0) / gm.angles_per_rep.length;
+                        setAvgInclination(Math.round(avg * 100) / 100);
+                      }
+                      if (gm.max_angle != null) {
+                        setAvgInclination((prev) => prev ?? gm.max_angle ?? null);
+                      }
+                    }
+                  }}
                   className="bg-[#29D68B] hover:bg-[#22c07a] text-white"
                 >
                   Confirmar tempo
@@ -241,31 +313,37 @@ export function ChairStandModule({ onSave, initialData, disabled }: ChairStandMo
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-              {mainCompleted ? (
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-              ) : (
-                <XCircle className="w-4 h-4 text-red-400" />
-              )}
-              <span className="text-sm font-medium text-gray-900">
-                {mainTime != null ? `${mainTime.toFixed(1)}s` : "—"}
-              </span>
-              <span className="text-xs text-gray-500">→ {chair_score} pontos</span>
-              {!saved && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto h-7 px-2 text-xs"
-                  onClick={() => {
-                    setMainConfirmed(false);
-                    setMainTime(null);
-                    setMainCompleted(null);
-                    setMainFailureReason("");
-                  }}
-                >
-                  Editar
-                </Button>
+            <div>
+              <div className="flex items-center gap-3">
+                {mainCompleted ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-red-400" />
+                )}
+                <span className="text-sm font-medium text-gray-900">
+                  {mainTime != null ? `${mainTime.toFixed(1)}s` : "—"}
+                </span>
+                <span className="text-xs text-gray-500">→ {chair_score} pontos</span>
+                {!saved && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7 px-2 text-xs"
+                    onClick={() => {
+                      setMainConfirmed(false);
+                      setMainTime(null);
+                      setMainCompleted(null);
+                      setMainFailureReason("");
+                      if (device) device.resetDevice();
+                    }}
+                  >
+                    Editar
+                  </Button>
+                )}
+              </div>
+              {device?.lastReading?.test_type === "chair_main" && (
+                <SensorDataDisplay reading={device.lastReading} testType="chair_main" />
               )}
             </div>
           )}

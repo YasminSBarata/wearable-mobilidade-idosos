@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(xargs grep:*)",
+      "Read(//c/Users/Yasmin/.claude/projects/c--Users-Yasmin-Documents-Faculdade-Pesquisa-CNPq-gerontologia-wearable-mobilidade-idosos/memory/**)",
+      "Bash(grep -E \"\\\\.tsx$|\\\\.ts$\")",
+      "Bash(npx vite:*)"
+    ]
+  }
+}

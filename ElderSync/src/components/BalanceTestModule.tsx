@@ -3,6 +3,7 @@ import { Scale, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { BalanceSubtest, type BalanceSubtestData } from "./BalanceSubtest";
 import { scoreBalance, shouldBlockNextBalanceSubtest } from "../lib/scoring/balance";
+import type { UseDeviceSessionReturn } from "../hooks/useDeviceSession";
 
 export interface BalanceModuleData {
   balance_feet_together_result: string;
@@ -24,6 +25,9 @@ interface BalanceTestModuleProps {
   onSave: (data: BalanceModuleData) => Promise<void>;
   initialData?: Partial<BalanceModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
+  device?: UseDeviceSessionReturn;
 }
 
 const SUBTESTS = [
@@ -47,7 +51,7 @@ const SUBTESTS = [
 /**
  * Módulo de equilíbrio SPPB — 3 subtestes com bloqueio progressivo.
  */
-export function BalanceTestModule({ onSave, initialData, disabled }: BalanceTestModuleProps) {
+export function BalanceTestModule({ onSave, initialData, disabled, editMode, device }: BalanceTestModuleProps) {
   const [subtestA, setSubtestA] = useState<BalanceSubtestData | null>(
     initialData?.balance_feet_together_result
       ? {
@@ -76,7 +80,7 @@ export function BalanceTestModule({ onSave, initialData, disabled }: BalanceTest
       : null,
   );
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(!!initialData?.balance_feet_together_result);
+  const [saved, setSaved] = useState(!!initialData?.balance_feet_together_result && !editMode);
 
   const blockB = subtestA !== null && shouldBlockNextBalanceSubtest(subtestA.result, subtestA.time);
   const blockC =
@@ -147,23 +151,29 @@ export function BalanceTestModule({ onSave, initialData, disabled }: BalanceTest
       {/* Subtestes */}
       <BalanceSubtest
         {...SUBTESTS[0]}
+        iotTestType="balance_a"
         locked={saved || disabled}
         onComplete={setSubtestA}
         initialData={subtestA}
+        device={device}
       />
       <BalanceSubtest
         {...SUBTESTS[1]}
+        iotTestType="balance_b"
         blocked={!subtestA || blockB}
         locked={saved || disabled}
         onComplete={setSubtestB}
         initialData={subtestB}
+        device={device}
       />
       <BalanceSubtest
         {...SUBTESTS[2]}
+        iotTestType="balance_c"
         blocked={!subtestB || blockC}
         locked={saved || disabled}
         onComplete={setSubtestC}
         initialData={subtestC}
+        device={device}
       />
 
       {/* Ação */}

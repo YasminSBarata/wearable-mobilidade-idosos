@@ -6,12 +6,19 @@ import { PatientsPage } from "./components/PatientsPage";
 import { PatientProfilePage } from "./components/PatientProfilePage";
 import { SessionHistoryPage } from "./components/SessionHistoryPage";
 import { NewSessionForm } from "./components/NewSessionForm";
+import { EditSessionForm } from "./components/EditSessionForm";
 import { EvolutionDashboard } from "./components/EvolutionDashboard";
 
 function NewSessionPage() {
   const { id } = useParams<{ id: string }>();
   if (!id) return null;
   return <NewSessionForm patientId={id} />;
+}
+
+function EditSessionPage() {
+  const { id, sessionId } = useParams<{ id: string; sessionId: string }>();
+  if (!id || !sessionId) return null;
+  return <EditSessionForm patientId={id} sessionId={sessionId} />;
 }
 
 
@@ -55,6 +62,16 @@ export const router = createBrowserRouter([
       {
         index: true,
         Component: NewSessionPage,
+      },
+    ],
+  },
+  {
+    path: "/patients/:id/session/:sessionId/edit",
+    element: <ProtectedRoute />,
+    children: [
+      {
+        index: true,
+        Component: EditSessionPage,
       },
     ],
   },

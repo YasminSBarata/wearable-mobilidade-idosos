@@ -4,8 +4,11 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Stopwatch } from "./Stopwatch";
 import { FailureReasonSelect } from "./FailureReasonSelect";
+import { SensorDataDisplay } from "./SensorDataDisplay";
+import { DeviceCooldownBanner } from "./DeviceCooldownBanner";
 import { scoreGaitFromAttempts } from "../lib/scoring/gait";
 import type { GaitDistance } from "../lib/scoring/gait";
+import type { UseDeviceSessionReturn, IoTTestType } from "../hooks/useDeviceSession";
 
 export interface GaitModuleData {
   gait_distance: number;
@@ -17,6 +20,8 @@ export interface GaitModuleData {
   gait_attempt2_failure_reason: string | null;
   gait_best_time: number | null;
   gait_score: number;
+  gait_oscillation_index_1: number | null;
+  gait_oscillation_index_2: number | null;
 }
 
 interface AttemptState {
@@ -30,6 +35,9 @@ interface GaitSpeedModuleProps {
   onSave: (data: GaitModuleData) => Promise<void>;
   initialData?: Partial<GaitModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
+  device?: UseDeviceSessionReturn;
 }
 
 function AttemptRow({
@@ -38,12 +46,16 @@ function AttemptRow({
   onTimeRecorded,
   onComplete,
   locked,
+  device,
+  iotTestType,
 }: {
   label: string;
   attempt: AttemptState;
   onTimeRecorded: (t: number) => void;
   onComplete: (completed: boolean, reason: string) => void;
   locked: boolean;
+  device?: UseDeviceSessionReturn;
+  iotTestType?: IoTTestType;
 }) {
   const [completed, setCompleted] = useState<boolean | null>(
     attempt.confirmed ? attempt.completed : null,
@@ -59,18 +71,23 @@ function AttemptRow({
 
   if (confirmed) {
     return (
-      <div className="flex items-center gap-3 py-2 border-t border-gray-100 first:border-t-0">
-        <span className="text-sm text-gray-500 w-24 shrink-0">{label}</span>
-        {attempt.completed ? (
-          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-        ) : (
-          <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-        )}
-        <span className="text-sm font-medium text-gray-900">
-          {attempt.time != null ? `${attempt.time.toFixed(1)}s` : "—"}
-        </span>
-        {!attempt.completed && attempt.failureReason && (
-          <span className="text-xs text-gray-500">{attempt.failureReason}</span>
+      <div className="py-2 border-t border-gray-100 first:border-t-0">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500 w-24 shrink-0">{label}</span>
+          {attempt.completed ? (
+            <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+          ) : (
+            <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+          )}
+          <span className="text-sm font-medium text-gray-900">
+            {attempt.time != null ? `${attempt.time.toFixed(1)}s` : "—"}
+          </span>
+          {!attempt.completed && attempt.failureReason && (
+            <span className="text-xs text-gray-500">{attempt.failureReason}</span>
+          )}
+        </div>
+        {device?.lastReading && iotTestType && device.lastReading.test_type === iotTestType && (
+          <SensorDataDisplay reading={device.lastReading} testType={iotTestType} />
         )}
       </div>
     );
@@ -79,10 +96,21 @@ function AttemptRow({
   return (
     <div className="py-3 border-t border-gray-100 first:border-t-0 space-y-3">
       <p className="text-sm font-medium text-gray-700">{label}</p>
+      {device && device.cooldownRemaining > 0 && (
+        <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+      )}
       <Stopwatch
+        onStart={() => {
+          if (device && iotTestType) {
+            device.resetDevice();
+            device.startCollection(iotTestType);
+          }
+        }}
         onStop={(t) => {
           onTimeRecorded(t);
+          if (device) device.stopCollection();
         }}
+        disabled={device && device.cooldownRemaining > 0 ? true : undefined}
         initialDisplay={attempt.time}
       />
       {attempt.time != null && (
@@ -133,7 +161,7 @@ function AttemptRow({
 /**
  * Módulo de velocidade de marcha SPPB — 2 tentativas, melhor tempo.
  */
-export function GaitSpeedModule({ onSave, initialData, disabled }: GaitSpeedModuleProps) {
+export function GaitSpeedModule({ onSave, initialData, disabled, editMode, device }: GaitSpeedModuleProps) {
   const [distance, setDistance] = useState<GaitDistance>(
     (initialData?.gait_distance as GaitDistance) ?? 4,
   );
@@ -149,8 +177,10 @@ export function GaitSpeedModule({ onSave, initialData, disabled }: GaitSpeedModu
     failureReason: initialData?.gait_attempt2_failure_reason ?? "",
     confirmed: !!initialData?.gait_attempt2_time,
   });
+  const [oscIndex1, setOscIndex1] = useState<number | null>(initialData?.gait_oscillation_index_1 ?? null);
+  const [oscIndex2, setOscIndex2] = useState<number | null>(initialData?.gait_oscillation_index_2 ?? null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(!!initialData?.gait_distance);
+  const [saved, setSaved] = useState(!!initialData?.gait_distance && !editMode);
 
   const canSave = attempt1.confirmed && !saving && !saved;
 
@@ -173,6 +203,8 @@ export function GaitSpeedModule({ onSave, initialData, disabled }: GaitSpeedModu
         gait_attempt2_failure_reason: attempt2.failureReason || null,
         gait_best_time: best_time,
         gait_score,
+        gait_oscillation_index_1: oscIndex1,
+        gait_oscillation_index_2: oscIndex2,
       });
       setSaved(true);
     } finally {
@@ -220,19 +252,29 @@ export function GaitSpeedModule({ onSave, initialData, disabled }: GaitSpeedModu
           label="1ª tentativa"
           attempt={attempt1}
           locked={saved || disabled || false}
+          device={device}
+          iotTestType="gait_1"
           onTimeRecorded={(t) => setAttempt1((a) => ({ ...a, time: t }))}
-          onComplete={(completed, reason) =>
-            setAttempt1((a) => ({ ...a, completed, failureReason: reason, confirmed: true }))
-          }
+          onComplete={(completed, reason) => {
+            setAttempt1((a) => ({ ...a, completed, failureReason: reason, confirmed: true }));
+            if (device?.lastReading?.gait_metrics) {
+              setOscIndex1(device.lastReading.gait_metrics.oscillation_index);
+            }
+          }}
         />
         <AttemptRow
           label="2ª tentativa"
           attempt={attempt2}
           locked={saved || disabled || false}
+          device={device}
+          iotTestType="gait_2"
           onTimeRecorded={(t) => setAttempt2((a) => ({ ...a, time: t }))}
-          onComplete={(completed, reason) =>
-            setAttempt2((a) => ({ ...a, completed, failureReason: reason, confirmed: true }))
-          }
+          onComplete={(completed, reason) => {
+            setAttempt2((a) => ({ ...a, completed, failureReason: reason, confirmed: true }));
+            if (device?.lastReading?.gait_metrics) {
+              setOscIndex2(device.lastReading.gait_metrics.oscillation_index);
+            }
+          }}
         />
       </div>
 

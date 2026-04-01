@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Loader2, AlertTriangle, X } from "lucide-react";
+import { ArrowLeft, Loader2, AlertTriangle, X, Wifi } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -10,11 +10,10 @@ import { BalanceTestModule, type BalanceModuleData } from "./BalanceTestModule";
 import { GaitSpeedModule, type GaitModuleData } from "./GaitSpeedModule";
 import { ChairStandModule, type ChairStandModuleData } from "./ChairStandModule";
 import { TUGModule, type TUGModuleData } from "./TUGModule";
+import { DeviceStatusBadge } from "./DeviceStatusBadge";
 import { apiFetch } from "../utils/api";
 import { calculateSPPBTotal } from "../lib/scoring/sppb";
 import { todayLocal } from "../utils/date";
-
-// Importado apenas para instanciar o hook — dispositivo é opcional
 import { useDeviceSession } from "../hooks/useDeviceSession";
 
 interface NewSessionFormProps {
@@ -54,6 +53,9 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
   const [notes, setNotes] = useState("");
   const [creating, setCreating] = useState(false);
 
+  // Device ID (opcional — MAC address do ESP32)
+  const [deviceId, setDeviceId] = useState("4022D8FF9810");
+
   // Dados de cada módulo
   const [balanceData, setBalanceData] = useState<BalanceModuleData | null>(null);
   const [gaitData, setGaitData] = useState<GaitModuleData | null>(null);
@@ -64,7 +66,8 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
   const [error, setError] = useState("");
 
   // IoT hook — dispositivo é opcional, nunca bloqueia o fluxo
-  const { deviceError } = useDeviceSession(sessionId);
+  const hasDevice = deviceId.trim().length > 0;
+  const device = useDeviceSession(sessionId, hasDevice ? deviceId.trim() : null);
 
   // ── Criar sessão ────────────────────────────────────────────────────────────
   const handleCreateSession = async () => {
@@ -100,6 +103,7 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
       method: "PUT",
       body: JSON.stringify(payload),
     });
+    device.resetDevice();
     setStep(nextStep);
   };
 
@@ -151,6 +155,12 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
                 <p className="text-xs text-gray-500 truncate">{patientName}</p>
               )}
             </div>
+            <DeviceStatusBadge
+              deviceState={device.deviceState}
+              isCalibrated={device.isCalibrated}
+              deviceError={device.deviceError}
+              hasDevice={hasDevice}
+            />
           </div>
 
           {/* Steps */}
@@ -195,10 +205,10 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
         )}
 
         {/* Aviso de dispositivo IoT (não-bloqueante) */}
-        {deviceError && (
+        {device.deviceError && (
           <Alert>
             <AlertDescription className="text-xs text-amber-700">
-              Dispositivo IoT: {deviceError}. Registre os dados manualmente.
+              Dispositivo IoT: {device.deviceError}. Registre os dados manualmente.
             </AlertDescription>
           </Alert>
         )}
@@ -240,6 +250,24 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
                   rows={3}
                 />
               </div>
+
+              {/* Dispositivo IoT (opcional) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="device-id" className="flex items-center gap-1.5">
+                  <Wifi className="w-3.5 h-3.5" />
+                  Dispositivo sensor (opcional)
+                </Label>
+                <Input
+                  id="device-id"
+                  value={deviceId}
+                  onChange={(e) => setDeviceId(e.target.value.toUpperCase())}
+                  placeholder="MAC address do ESP32 — ex: AABBCCDDEEFF"
+                  maxLength={12}
+                />
+                <p className="text-xs text-gray-400">
+                  Deixe vazio para registrar dados manualmente, sem sensor.
+                </p>
+              </div>
             </div>
 
             <Button
@@ -259,29 +287,50 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
 
         {/* ── Step: balance ── */}
         {step === "balance" && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <BalanceTestModule onSave={handleSaveBalance} />
+          <div className="space-y-4">
+            {/* Calibração — aparece antes do primeiro teste se há dispositivo */}
+            {hasDevice && !device.isCalibrated && (
+              <CalibrationCard
+                deviceState={device.deviceState}
+                onCalibrate={device.calibrate}
+              />
+            )}
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <BalanceTestModule
+                onSave={handleSaveBalance}
+                device={hasDevice ? device : undefined}
+              />
+            </div>
           </div>
         )}
 
         {/* ── Step: gait ── */}
         {step === "gait" && (
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <GaitSpeedModule onSave={handleSaveGait} />
+            <GaitSpeedModule
+              onSave={handleSaveGait}
+              device={hasDevice ? device : undefined}
+            />
           </div>
         )}
 
         {/* ── Step: chair ── */}
         {step === "chair" && (
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <ChairStandModule onSave={handleSaveChair} />
+            <ChairStandModule
+              onSave={handleSaveChair}
+              device={hasDevice ? device : undefined}
+            />
           </div>
         )}
 
         {/* ── Step: tug ── */}
         {step === "tug" && (
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <TUGModule onSave={handleSaveTUG} />
+            <TUGModule
+              onSave={handleSaveTUG}
+              device={hasDevice ? device : undefined}
+            />
           </div>
         )}
 
@@ -296,6 +345,42 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Card de calibração ──────────────────────────────────────────────────────
+
+interface CalibrationCardProps {
+  deviceState: string;
+  onCalibrate: () => Promise<void>;
+}
+
+function CalibrationCard({ deviceState, onCalibrate }: CalibrationCardProps) {
+  const isCalibrating = deviceState === "calibrating";
+
+  return (
+    <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-amber-800">
+        Calibração do sensor
+      </h3>
+      <p className="text-xs text-amber-700">
+        Posicione o paciente parado na posição de teste e fixe o sensor.
+        A calibração leva 5 segundos e define o ponto zero para as medições.
+      </p>
+      <Button
+        type="button"
+        onClick={onCalibrate}
+        disabled={isCalibrating}
+        variant="outline"
+        className="border-amber-300 text-amber-800 hover:bg-amber-100"
+      >
+        {isCalibrating ? (
+          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Calibrando (5s)...</>
+        ) : (
+          "Calibrar sensor"
+        )}
+      </Button>
     </div>
   );
 }

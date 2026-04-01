@@ -28,5 +28,8 @@ dist-ssr
 # Supabase
 supabase/.temp
 
+# Arduino secrets
+esp32/secrets.h
+
 # Claude Code
 .claude/settings.local.json

@@ -1,2 +1,5 @@
 # Arduino secrets
 esp32/secrets.h
+
+# Claude Code
+.claude/

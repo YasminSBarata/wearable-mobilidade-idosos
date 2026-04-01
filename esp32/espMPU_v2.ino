@@ -55,7 +55,7 @@ const int    MPU_ADDR          = 0x68;
 const float  ALPHA             = 0.96f;   // filtro complementar: favorece giroscópio
 const int    SAMPLE_RATE_HZ    = 50;      // 50 leituras/segundo
 const int    SAMPLE_INTERVAL_MS = 1000 / SAMPLE_RATE_HZ; // 20 ms
-const int    SSE_RECONNECT_MS  = 5000;    // reconectar SSE após 5s
+const int    SSE_RECONNECT_MS  = 2000;    // reconectar SSE após 2s
 const int    MAX_SAMPLES       = 3000;    // 60s × 50Hz — tamanho máximo do buffer
 
 // ============================================================
@@ -371,6 +371,12 @@ void processarEventoSSE(const String& jsonStr, WiFiClientSecure& client) {
     estadoAtual = AGUARDANDO;
     ultimoBlink = millis();
     blinkState = false;
+
+    // Forçar reconexão SSE — a conexão pode ter ficado instável
+    // durante a medição. O servidor reenvia comandos pendentes na reconexão.
+    Serial.println("→ Reconectando SSE para garantir conexão limpa...");
+    client.stop();
+    return;
   }
 }
 
@@ -796,30 +802,16 @@ void enviarLeitura(Amostra* buf, int nAmostras,
 
   cw.end();  // chunk final → sinaliza fim do body ao servidor
 
-  // ---- Ler resposta HTTP ----
-  // Aguarda resposta (timeout 10s)
+  // ---- Ler resposta HTTP (rápido — não bloquear o retorno ao SSE) ----
   unsigned long t0 = millis();
-  while (!client.available() && millis() - t0 < 10000) delay(10);
+  while (!client.available() && millis() - t0 < 5000) delay(10);
 
   // Primeira linha = status HTTP (ex: "HTTP/1.1 200 OK")
   String statusLine = client.readStringUntil('\n');
   statusLine.trim();
   Serial.println("✓ Resposta: " + statusLine);
 
-  // Descartar cabeçalhos até linha vazia
-  while (client.connected()) {
-    String line = client.readStringUntil('\n');
-    line.trim();
-    if (line.length() == 0) break;
-  }
-
-  // Ler body (até 512 chars para log)
-  String body = "";
-  while (client.available() && body.length() < 512) {
-    body += (char)client.read();
-  }
-  if (body.length() > 0) Serial.println(body);
-
+  // Fechar imediatamente — não gastar tempo lendo body/headers
   client.stop();
 
   Serial.print("  Heap livre após envio: ");

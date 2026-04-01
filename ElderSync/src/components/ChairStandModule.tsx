@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Stopwatch } from "./Stopwatch";
 import { FailureReasonSelect } from "./FailureReasonSelect";
 import { SensorDataDisplay } from "./SensorDataDisplay";
+import { DeviceCooldownBanner } from "./DeviceCooldownBanner";
 import { scoreChairStandModule } from "../lib/scoring/chairStand";
 import type { UseDeviceSessionReturn } from "../hooks/useDeviceSession";
 
@@ -24,6 +25,8 @@ interface ChairStandModuleProps {
   onSave: (data: ChairStandModuleData) => Promise<void>;
   initialData?: Partial<ChairStandModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
   device?: UseDeviceSessionReturn;
 }
 
@@ -32,7 +35,7 @@ interface ChairStandModuleProps {
  * Pré-teste: levantar UMA vez sem usar os braços.
  * Teste principal: 5 repetições o mais rápido possível (máx. 60s).
  */
-export function ChairStandModule({ onSave, initialData, disabled, device }: ChairStandModuleProps) {
+export function ChairStandModule({ onSave, initialData, disabled, editMode, device }: ChairStandModuleProps) {
   // Pré-teste
   const [pretestDone, setPretestDone] = useState(initialData?.chair_pretest_passed != null);
   const [pretestPassed, setPretestPassed] = useState<boolean | null>(
@@ -68,7 +71,7 @@ export function ChairStandModule({ onSave, initialData, disabled, device }: Chai
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(
-    initialData?.chair_pretest_passed != null,
+    initialData?.chair_pretest_passed != null && !editMode,
   );
 
   const { chair_score } = scoreChairStandModule(
@@ -129,6 +132,9 @@ export function ChairStandModule({ onSave, initialData, disabled, device }: Chai
 
         {!pretestDone ? (
           <div className="space-y-3">
+            {device && device.cooldownRemaining > 0 && (
+              <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+            )}
             {device && (
               <Stopwatch
                 onStart={() => {
@@ -136,7 +142,7 @@ export function ChairStandModule({ onSave, initialData, disabled, device }: Chai
                   device.startCollection("chair_pretest");
                 }}
                 onStop={() => device.stopCollection()}
-                disabled={disabled}
+                disabled={disabled || (device && device.cooldownRemaining > 0) || false}
               />
             )}
             <div className="flex flex-col sm:flex-row gap-2">
@@ -231,6 +237,9 @@ export function ChairStandModule({ onSave, initialData, disabled, device }: Chai
 
           {!mainConfirmed ? (
             <div className="space-y-3">
+              {device && device.cooldownRemaining > 0 && (
+                <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+              )}
               <Stopwatch
                 onStart={() => {
                   if (device) {
@@ -243,7 +252,7 @@ export function ChairStandModule({ onSave, initialData, disabled, device }: Chai
                   if (device) device.stopCollection();
                 }}
                 initialDisplay={mainTime}
-                disabled={disabled}
+                disabled={disabled || (device != null && device.cooldownRemaining > 0)}
               />
 
               {mainTime != null && mainCompleted === null && (

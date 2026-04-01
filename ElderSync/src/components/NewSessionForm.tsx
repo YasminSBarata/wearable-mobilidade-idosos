@@ -54,7 +54,7 @@ export function NewSessionForm({ patientId, patientName }: NewSessionFormProps) 
   const [creating, setCreating] = useState(false);
 
   // Device ID (opcional — MAC address do ESP32)
-  const [deviceId, setDeviceId] = useState("");
+  const [deviceId, setDeviceId] = useState("4022D8FF9810");
 
   // Dados de cada módulo
   const [balanceData, setBalanceData] = useState<BalanceModuleData | null>(null);

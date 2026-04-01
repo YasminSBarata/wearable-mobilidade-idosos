@@ -42,6 +42,8 @@ export interface UseDeviceSessionReturn {
   calibrate: () => Promise<void>;
   resetDevice: () => void;
   deviceError: string | null;
+  /** Segundos restantes de cooldown entre testes (0 = pronto). */
+  cooldownRemaining: number;
 }
 
 /**
@@ -59,7 +61,36 @@ export function useDeviceSession(
   const [isCalibrated, setIsCalibrated] = useState(false);
   const [lastReading, setLastReading] = useState<DeviceReading | null>(null);
   const [deviceError, setDeviceError] = useState<string | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const activeCommandId = useRef<string | null>(null);
+  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const COOLDOWN_SECONDS = 15;
+
+  /** Inicia countdown de cooldown entre testes. */
+  const startCooldown = useCallback(() => {
+    if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+    setCooldownRemaining(COOLDOWN_SECONDS);
+    const startedAt = Date.now();
+    cooldownTimer.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const remaining = COOLDOWN_SECONDS - elapsed;
+      if (remaining <= 0) {
+        setCooldownRemaining(0);
+        if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+        cooldownTimer.current = null;
+      } else {
+        setCooldownRemaining(remaining);
+      }
+    }, 1000);
+  }, []);
+
+  // Cleanup do timer no unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+    };
+  }, []);
 
   // Supabase Realtime — ouve INSERT em device_readings para esta sessão
   useEffect(() => {
@@ -84,9 +115,10 @@ export function useDeviceSession(
             setIsCalibrated(true);
             setDeviceState("calibrated");
           } else {
-            // Medição normal
+            // Medição normal — inicia cooldown para o próximo teste
             setLastReading(reading);
             setDeviceState("data_received");
+            startCooldown();
           }
 
           activeCommandId.current = null;
@@ -190,5 +222,6 @@ export function useDeviceSession(
     calibrate,
     resetDevice,
     deviceError,
+    cooldownRemaining,
   };
 }

@@ -15,6 +15,7 @@ import {
 import { Stopwatch } from "./Stopwatch";
 import { TUGClassificationBadge } from "./TUGClassificationBadge";
 import { SensorDataDisplay } from "./SensorDataDisplay";
+import { DeviceCooldownBanner } from "./DeviceCooldownBanner";
 import { tugClassificationLabel } from "../lib/scoring/tug";
 import type { UseDeviceSessionReturn } from "../hooks/useDeviceSession";
 
@@ -39,6 +40,8 @@ interface TUGModuleProps {
   onSave: (data: TUGModuleData) => Promise<void>;
   initialData?: Partial<TUGModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
   device?: UseDeviceSessionReturn;
 }
 
@@ -46,7 +49,7 @@ interface TUGModuleProps {
  * Módulo TUG — Timed Up and Go.
  * Cronômetro + campos qualitativos + classificação automática.
  */
-export function TUGModule({ onSave, initialData, disabled, device }: TUGModuleProps) {
+export function TUGModule({ onSave, initialData, disabled, editMode, device }: TUGModuleProps) {
   const [time, setTime] = useState<number | null>(initialData?.tug_time ?? null);
   const [assistiveDevice, setAssistiveDevice] = useState(initialData?.tug_assistive_device ?? "Nenhum");
   const [footwear, setFootwear] = useState(initialData?.tug_footwear ?? "");
@@ -61,7 +64,7 @@ export function TUGModule({ onSave, initialData, disabled, device }: TUGModulePr
   const [painNotes, setPainNotes] = useState(initialData?.tug_pain_notes ?? "");
   const [compensatory, setCompensatory] = useState(initialData?.tug_compensatory_strategies ?? "");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(!!initialData?.tug_time);
+  const [saved, setSaved] = useState(!!initialData?.tug_time && !editMode);
 
   const canSave = !saving && !saved;
 
@@ -108,6 +111,9 @@ export function TUGModule({ onSave, initialData, disabled, device }: TUGModulePr
           Do sinal de &quot;vai&quot; até sentar completamente na cadeira.
           Paciente pode usar dispositivo de auxílio habitual.
         </p>
+        {device && device.cooldownRemaining > 0 && (
+          <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+        )}
         <Stopwatch
           onStart={() => {
             if (device) {
@@ -120,7 +126,7 @@ export function TUGModule({ onSave, initialData, disabled, device }: TUGModulePr
             if (device) device.stopCollection();
           }}
           initialDisplay={time}
-          disabled={disabled || saved}
+          disabled={disabled || saved || (device != null && device.cooldownRemaining > 0)}
         />
         {time != null && <TUGClassificationBadge time={time} />}
         {device?.lastReading?.test_type === "tug" && (

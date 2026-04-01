@@ -5,6 +5,7 @@ import { Label } from "./ui/label";
 import { Stopwatch } from "./Stopwatch";
 import { FailureReasonSelect } from "./FailureReasonSelect";
 import { SensorDataDisplay } from "./SensorDataDisplay";
+import { DeviceCooldownBanner } from "./DeviceCooldownBanner";
 import { scoreGaitFromAttempts } from "../lib/scoring/gait";
 import type { GaitDistance } from "../lib/scoring/gait";
 import type { UseDeviceSessionReturn, IoTTestType } from "../hooks/useDeviceSession";
@@ -34,6 +35,8 @@ interface GaitSpeedModuleProps {
   onSave: (data: GaitModuleData) => Promise<void>;
   initialData?: Partial<GaitModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
   device?: UseDeviceSessionReturn;
 }
 
@@ -93,6 +96,9 @@ function AttemptRow({
   return (
     <div className="py-3 border-t border-gray-100 first:border-t-0 space-y-3">
       <p className="text-sm font-medium text-gray-700">{label}</p>
+      {device && device.cooldownRemaining > 0 && (
+        <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+      )}
       <Stopwatch
         onStart={() => {
           if (device && iotTestType) {
@@ -104,6 +110,7 @@ function AttemptRow({
           onTimeRecorded(t);
           if (device) device.stopCollection();
         }}
+        disabled={device && device.cooldownRemaining > 0 ? true : undefined}
         initialDisplay={attempt.time}
       />
       {attempt.time != null && completed === null && (
@@ -153,7 +160,7 @@ function AttemptRow({
 /**
  * Módulo de velocidade de marcha SPPB — 2 tentativas, melhor tempo.
  */
-export function GaitSpeedModule({ onSave, initialData, disabled, device }: GaitSpeedModuleProps) {
+export function GaitSpeedModule({ onSave, initialData, disabled, editMode, device }: GaitSpeedModuleProps) {
   const [distance, setDistance] = useState<GaitDistance>(
     (initialData?.gait_distance as GaitDistance) ?? 4,
   );
@@ -172,7 +179,7 @@ export function GaitSpeedModule({ onSave, initialData, disabled, device }: GaitS
   const [oscIndex1, setOscIndex1] = useState<number | null>(initialData?.gait_oscillation_index_1 ?? null);
   const [oscIndex2, setOscIndex2] = useState<number | null>(initialData?.gait_oscillation_index_2 ?? null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(!!initialData?.gait_distance);
+  const [saved, setSaved] = useState(!!initialData?.gait_distance && !editMode);
 
   const canSave = attempt1.confirmed && !saving && !saved;
 

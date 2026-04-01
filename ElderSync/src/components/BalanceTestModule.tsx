@@ -25,6 +25,8 @@ interface BalanceTestModuleProps {
   onSave: (data: BalanceModuleData) => Promise<void>;
   initialData?: Partial<BalanceModuleData> | null;
   disabled?: boolean;
+  /** Modo edição: dados pré-preenchidos mas desbloqueados para resalvar */
+  editMode?: boolean;
   device?: UseDeviceSessionReturn;
 }
 
@@ -49,7 +51,7 @@ const SUBTESTS = [
 /**
  * Módulo de equilíbrio SPPB — 3 subtestes com bloqueio progressivo.
  */
-export function BalanceTestModule({ onSave, initialData, disabled, device }: BalanceTestModuleProps) {
+export function BalanceTestModule({ onSave, initialData, disabled, editMode, device }: BalanceTestModuleProps) {
   const [subtestA, setSubtestA] = useState<BalanceSubtestData | null>(
     initialData?.balance_feet_together_result
       ? {
@@ -78,7 +80,7 @@ export function BalanceTestModule({ onSave, initialData, disabled, device }: Bal
       : null,
   );
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(!!initialData?.balance_feet_together_result);
+  const [saved, setSaved] = useState(!!initialData?.balance_feet_together_result && !editMode);
 
   const blockB = subtestA !== null && shouldBlockNextBalanceSubtest(subtestA.result, subtestA.time);
   const blockC =

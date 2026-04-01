@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Stopwatch } from "./Stopwatch";
 import { FailureReasonSelect } from "./FailureReasonSelect";
 import { SensorDataDisplay } from "./SensorDataDisplay";
+import { DeviceCooldownBanner } from "./DeviceCooldownBanner";
 import type { BalanceResult } from "../lib/scoring/balance";
 import type { UseDeviceSessionReturn, IoTTestType } from "../hooks/useDeviceSession";
 
@@ -133,6 +134,11 @@ export function BalanceSubtest({
 
       {!isConfirmed && (
         <div className="space-y-4">
+          {/* Cooldown do dispositivo */}
+          {device && device.cooldownRemaining > 0 && (
+            <DeviceCooldownBanner seconds={device.cooldownRemaining} />
+          )}
+
           {/* Cronômetro */}
           <div>
             <p className="text-xs text-gray-500 mb-2">Tempo</p>
@@ -145,6 +151,7 @@ export function BalanceSubtest({
                 setPhase("timed");
                 if (device) device.stopCollection();
               }}
+              disabled={device && device.cooldownRemaining > 0 ? true : undefined}
               initialDisplay={time}
             />
           </div>

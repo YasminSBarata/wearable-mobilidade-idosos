@@ -63,12 +63,51 @@ app.get("/listen", async (c: Context) => {
   const supabase = getSupabaseServiceClient();
   const encoder = new TextEncoder();
 
+  // Helper: envia comandos não-entregues via SSE e marca como "executing"
+  // Busca "pending" (nunca enviados) e "executing" antigos (enviados mas ESP não recebeu)
+  async function sendPendingCommands(
+    controller: ReadableStreamDefaultController,
+  ) {
+    const thirtySecondsAgo = new Date(Date.now() - 30_000).toISOString();
+    const { data: pending } = await supabase
+      .from("device_commands")
+      .select("id, test_type, duration_max, session_id, status, created_at")
+      .eq("device_id", deviceId)
+      .in("status", ["pending", "executing"])
+      .order("created_at", { ascending: true });
+
+    if (!pending || pending.length === 0) return;
+
+    for (const cmd of pending) {
+      // Só reenvia "executing" se criado há mais de 30s (provável falha de entrega)
+      if (cmd.status === "executing" && cmd.created_at > thirtySecondsAgo) continue;
+
+      await supabase
+        .from("device_commands")
+        .update({ status: "executing" })
+        .eq("id", cmd.id);
+
+      const event = JSON.stringify({
+        id: cmd.id,
+        test_type: cmd.test_type,
+        duration_max: cmd.duration_max,
+        session_id: cmd.session_id,
+      });
+
+      log.log("Comando enviado via SSE (poll)", { deviceId, cmdId: cmd.id });
+      controller.enqueue(encoder.encode(`data: ${event}\n\n`));
+    }
+  }
+
   const stream = new ReadableStream({
     start(controller) {
       // Confirma conexão
       controller.enqueue(encoder.encode(": connected\n\n"));
 
-      // Escuta novos comandos pendentes para este device_id
+      // Envia comandos pendentes que já existam no banco (reconexão)
+      sendPendingCommands(controller).catch(() => {});
+
+      // Escuta novos comandos pendentes para este device_id (entrega instantânea)
       const channel = supabase
         .channel(`device-${deviceId}`)
         .on(
@@ -121,15 +160,16 @@ app.get("/listen", async (c: Context) => {
         )
         .subscribe();
 
-      // Heartbeat a cada 30s para manter conexão viva
-      const heartbeat = setInterval(() => {
+      // Heartbeat a cada 10s — também verifica comandos pendentes (safety net)
+      const heartbeat = setInterval(async () => {
         try {
+          await sendPendingCommands(controller);
           controller.enqueue(encoder.encode(": heartbeat\n\n"));
         } catch {
           clearInterval(heartbeat);
           supabase.removeChannel(channel);
         }
-      }, 30_000);
+      }, 10_000);
     },
   });
 
